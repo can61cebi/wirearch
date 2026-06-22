@@ -22,7 +22,7 @@ pub enum WgError {
     Key(String),
     #[error("invalid address or allowed-ip: {0}")]
     Addr(String),
-    #[error(transparent)]
+    #[error("{0} (the WireArch service needs CAP_NET_ADMIN; run it privileged or via the system service)")]
     Wg(#[from] WireguardInterfaceError),
 }
 

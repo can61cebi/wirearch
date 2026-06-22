@@ -76,14 +76,10 @@ void WireArchManager::refresh()
     }
 
     QVariantList tunnels;
-    QDBusArgument arg = reply.arguments().value(0).value<QDBusArgument>();
-    arg.beginArray();
-    while (!arg.atEnd()) {
-        QVariantMap map;
-        arg >> map;
-        tunnels.append(map);
+    const auto list = qdbus_cast<QList<QVariantMap>>(reply.arguments().value(0));
+    for (const QVariantMap &tunnel : list) {
+        tunnels.append(tunnel);
     }
-    arg.endArray();
 
     m_tunnels = tunnels;
     setAvailable(true);

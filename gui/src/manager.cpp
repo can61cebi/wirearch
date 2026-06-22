@@ -5,6 +5,8 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusMessage>
+#include <QDBusPendingCall>
+#include <QDBusPendingCallWatcher>
 #include <QFile>
 #include <QFileInfo>
 #include <QUrl>
@@ -156,4 +158,49 @@ void WireArchManager::disconnectTunnel(const QString &id)
         Q_EMIT errorOccurred(reply.errorMessage());
     }
     refreshActive();
+}
+
+QVariantMap WireArchManager::geoFor(const QString &endpoint)
+{
+    if (endpoint.isEmpty() || !m_iface) {
+        return QVariantMap();
+    }
+    if (m_geoCache.contains(endpoint)) {
+        return m_geoCache.value(endpoint);
+    }
+    // Mark in-flight (empty) to avoid duplicate calls, then fetch async.
+    m_geoCache.insert(endpoint, QVariantMap());
+    const QDBusPendingCall pending = m_iface->asyncCall(QStringLiteral("Geo"), endpoint);
+    auto *watcher = new QDBusPendingCallWatcher(pending, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, endpoint](QDBusPendingCallWatcher *w) {
+                const QDBusMessage reply = w->reply();
+                if (reply.type() != QDBusMessage::ErrorMessage) {
+                    m_geoCache.insert(endpoint,
+                                      qdbus_cast<QVariantMap>(reply.arguments().value(0)));
+                    Q_EMIT geoUpdated(endpoint);
+                }
+                w->deleteLater();
+            });
+    return QVariantMap();
+}
+
+QVariantMap WireArchManager::statusFor(const QString &id)
+{
+    if (!m_iface) {
+        return QVariantMap();
+    }
+    const QDBusMessage reply = m_iface->call(QStringLiteral("GetStatus"), id);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        return QVariantMap();
+    }
+    return qdbus_cast<QVariantMap>(reply.arguments().value(0));
+}
+
+QString WireArchManager::flagSource(const QString &countryCode) const
+{
+    if (countryCode.isEmpty()) {
+        return QString();
+    }
+    return QStringLiteral("qrc:/flags/%1.svg").arg(countryCode.toLower());
 }

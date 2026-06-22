@@ -1,8 +1,10 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QVariantList>
+#include <QVariantMap>
 #include <qqmlregistration.h>
 
 class QDBusInterface;
@@ -33,10 +35,19 @@ public:
     Q_INVOKABLE void connectTunnel(const QString &id);
     Q_INVOKABLE void disconnectTunnel(const QString &id);
 
+    /// Country/ISP for an endpoint. Returns a cached map (empty on first call)
+    /// and fetches asynchronously; emits geoUpdated(endpoint) when ready.
+    Q_INVOKABLE QVariantMap geoFor(const QString &endpoint);
+    /// Live status for a tunnel (synchronous; call periodically while active).
+    Q_INVOKABLE QVariantMap statusFor(const QString &id);
+    /// Resource path of the flag for a 2-letter country code (empty if none).
+    Q_INVOKABLE QString flagSource(const QString &countryCode) const;
+
 Q_SIGNALS:
     void tunnelsChanged();
     void availableChanged();
     void activeTunnelChanged();
+    void geoUpdated(const QString &endpoint);
     void errorOccurred(const QString &message);
 
 private:
@@ -47,4 +58,5 @@ private:
     QVariantList m_tunnels;
     bool m_available = false;
     QString m_activeTunnel;
+    QHash<QString, QVariantMap> m_geoCache;
 };

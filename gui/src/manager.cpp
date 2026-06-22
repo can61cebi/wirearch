@@ -223,3 +223,48 @@ QString WireArchManager::flagSource(const QString &countryCode) const
     }
     return QStringLiteral("qrc:/flags/%1.svg").arg(countryCode.toLower());
 }
+
+QString WireArchManager::saveTunnel(const QString &id, const QString &name, const QString &config)
+{
+    if (!m_iface) {
+        return QString();
+    }
+    const QDBusMessage reply =
+        m_iface->call(QStringLiteral("SaveTunnel"), id, name, config);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        Q_EMIT errorOccurred(reply.errorMessage());
+        return QString();
+    }
+    refresh();
+    return reply.arguments().value(0).toString();
+}
+
+QString WireArchManager::getConfig(const QString &id)
+{
+    if (!m_iface) {
+        return QString();
+    }
+    const QDBusMessage reply = m_iface->call(QStringLiteral("GetTunnel"), id);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        Q_EMIT errorOccurred(reply.errorMessage());
+        return QString();
+    }
+    const QVariantMap tunnel = qdbus_cast<QVariantMap>(reply.arguments().value(0));
+    return tunnel.value(QStringLiteral("config")).toString();
+}
+
+QVariantMap WireArchManager::generateKeypair()
+{
+    if (!m_iface) {
+        return QVariantMap();
+    }
+    const QDBusMessage reply = m_iface->call(QStringLiteral("GenerateKeypair"));
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        Q_EMIT errorOccurred(reply.errorMessage());
+        return QVariantMap();
+    }
+    QVariantMap result;
+    result[QStringLiteral("privateKey")] = reply.arguments().value(0).toString();
+    result[QStringLiteral("publicKey")] = reply.arguments().value(1).toString();
+    return result;
+}

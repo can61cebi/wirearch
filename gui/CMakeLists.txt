@@ -11,6 +11,7 @@ qt_add_qml_module(wirearch
     QML_FILES
         qml/Main.qml
         qml/StatisticsPage.qml
+        qml/TunnelEditPage.qml
     SOURCES
         src/manager.h
         src/manager.cpp

@@ -54,6 +54,11 @@ Kirigami.ApplicationWindow {
 
         actions: [
             Kirigami.Action {
+                text: i18nc("@action:button", "Add")
+                icon.name: "list-add"
+                onTriggered: root.pageStack.push(editComponent, { tunnelId: "", tunnelName: "" })
+            },
+            Kirigami.Action {
                 text: i18nc("@action:button", "Import")
                 icon.name: "document-import"
                 onTriggered: importDialog.open()
@@ -224,6 +229,14 @@ Kirigami.ApplicationWindow {
                     }
 
                     Controls.ToolButton {
+                        icon.name: "document-edit"
+                        display: Controls.AbstractButton.IconOnly
+                        Controls.ToolTip.text: i18nc("@info:tooltip", "Edit tunnel")
+                        Controls.ToolTip.visible: hovered
+                        onClicked: root.pageStack.push(editComponent,
+                            { tunnelId: row.modelData.id, tunnelName: row.modelData.name })
+                    }
+                    Controls.ToolButton {
                         icon.name: "edit-delete"
                         display: Controls.AbstractButton.IconOnly
                         enabled: !row.isActive
@@ -259,6 +272,11 @@ Kirigami.ApplicationWindow {
     Component {
         id: statisticsComponent
         StatisticsPage {}
+    }
+
+    Component {
+        id: editComponent
+        TunnelEditPage {}
     }
 
     FileDialog {

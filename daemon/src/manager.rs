@@ -302,6 +302,13 @@ impl Manager {
         Ok(m)
     }
 
+    /// Generate a fresh WireGuard keypair, returned as (private, public) base64.
+    async fn generate_keypair(&self) -> fdo::Result<(String, String)> {
+        let private = defguard_wireguard_rs::key::Key::generate();
+        let public = private.public_key();
+        Ok((private.to_string(), public.to_string()))
+    }
+
     #[zbus(property)]
     async fn version(&self) -> String {
         env!("CARGO_PKG_VERSION").to_string()

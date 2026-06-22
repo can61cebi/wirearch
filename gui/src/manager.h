@@ -44,6 +44,12 @@ public:
     Q_INVOKABLE QVariantList metrics(const QString &period, int count);
     /// Resource path of the flag for a 2-letter country code (empty if none).
     Q_INVOKABLE QString flagSource(const QString &countryCode) const;
+    /// Create (empty id) or update a tunnel from raw .conf text; returns its id.
+    Q_INVOKABLE QString saveTunnel(const QString &id, const QString &name, const QString &config);
+    /// Raw .conf text for a tunnel, for the editor.
+    Q_INVOKABLE QString getConfig(const QString &id);
+    /// Generate a WireGuard keypair: { privateKey, publicKey }.
+    Q_INVOKABLE QVariantMap generateKeypair();
 
 Q_SIGNALS:
     void tunnelsChanged();

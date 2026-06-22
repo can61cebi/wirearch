@@ -35,7 +35,7 @@ RestrictSUIDSGID=yes
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
 MemoryDenyWriteExecute=yes
-# NOTE: ProtectKernelModules is intentionally NOT enabled — it would block
+# NOTE: ProtectKernelModules is intentionally NOT enabled - it would block
 # loading the wireguard module. We pre-load it via modules-load.d instead.
 
 [Install]

@@ -1,7 +1,7 @@
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <!--
-  WireArch privileged daemon — D-Bus interface contract.
+  WireArch privileged daemon - D-Bus interface contract.
   Bus: system   Service: tr.cebi.wirearch   Object: /tr/cebi/wirearch
   Privileged methods are authorized per-call via polkit
   (actions tr.cebi.wirearch.connect / .manage / .killswitch).

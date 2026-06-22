@@ -1,4 +1,4 @@
-# WireArch — Feature Map
+# WireArch - Feature Map
 
 Legend: ✅ planned for v1 · 🔜 near-term · 💡 later / ideas
 
@@ -19,9 +19,9 @@ Legend: ✅ planned for v1 · 🔜 near-term · 💡 later / ideas
 - 💡 Per-tunnel on-demand / trusted-network rules (Wi-Fi SSID based)
 
 ## Security
-- ✅ **Kill switch** (fail-closed nftables) — global and per-tunnel
+- ✅ **Kill switch** (fail-closed nftables) - global and per-tunnel
 - ✅ DNS-leak protection (systemd-resolved `~.` routing domain)
-- 🔜 **Split tunneling** — friendly `AllowedIPs` editor; include / exclude subnets (apps later)
+- 🔜 **Split tunneling** - friendly `AllowedIPs` editor; include / exclude subnets (apps later)
 - ✅ Secrets in **KWallet**; daemon runs least-privilege (only `CAP_NET_ADMIN`)
 - 💡 IPv6 leak guard toggle
 

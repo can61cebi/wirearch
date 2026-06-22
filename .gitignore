@@ -1,6 +1,6 @@
 # ============================================================
-#  PRIVATE — real WireGuard test configs in the repo ROOT
-#  (hetzner.conf, leventproxmox.conf, turhost.conf — NEVER commit/push)
+#  PRIVATE - real WireGuard test configs in the repo ROOT
+#  (hetzner.conf, leventproxmox.conf, turhost.conf - NEVER commit/push)
 # ============================================================
 /*.conf
 /test-configs/

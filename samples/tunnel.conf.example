@@ -1,4 +1,4 @@
-# WireArch example tunnel — sanitized sample (safe to commit).
+# WireArch example tunnel - sanitized sample (safe to commit).
 # Real tunnels live as *.conf and are gitignored. NEVER commit real keys.
 
 [Interface]

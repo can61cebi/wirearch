@@ -79,6 +79,64 @@ pub struct WgConfig {
     pub peers: Vec<Peer>,
 }
 
+impl WgConfig {
+    /// Render the configuration back to wg-quick `.conf` text.
+    pub fn to_conf_string(&self) -> String {
+        let mut s = String::from("[Interface]\n");
+        let i = &self.interface;
+        if let Some(pk) = &i.private_key {
+            s += &format!("PrivateKey = {pk}\n");
+        }
+        if !i.addresses.is_empty() {
+            s += &format!("Address = {}\n", i.addresses.join(", "));
+        }
+        if !i.dns.is_empty() {
+            s += &format!("DNS = {}\n", i.dns.join(", "));
+        }
+        if let Some(mtu) = i.mtu {
+            s += &format!("MTU = {mtu}\n");
+        }
+        if let Some(port) = i.listen_port {
+            s += &format!("ListenPort = {port}\n");
+        }
+        if let Some(table) = &i.table {
+            s += &format!("Table = {table}\n");
+        }
+        if let Some(fwmark) = i.fwmark {
+            s += &format!("FwMark = 0x{fwmark:x}\n");
+        }
+        for v in &i.pre_up {
+            s += &format!("PreUp = {v}\n");
+        }
+        for v in &i.post_up {
+            s += &format!("PostUp = {v}\n");
+        }
+        for v in &i.pre_down {
+            s += &format!("PreDown = {v}\n");
+        }
+        for v in &i.post_down {
+            s += &format!("PostDown = {v}\n");
+        }
+        for peer in &self.peers {
+            s += "\n[Peer]\n";
+            s += &format!("PublicKey = {}\n", peer.public_key);
+            if let Some(psk) = &peer.preshared_key {
+                s += &format!("PresharedKey = {psk}\n");
+            }
+            if let Some(ep) = &peer.endpoint {
+                s += &format!("Endpoint = {ep}\n");
+            }
+            if !peer.allowed_ips.is_empty() {
+                s += &format!("AllowedIPs = {}\n", peer.allowed_ips.join(", "));
+            }
+            if let Some(ka) = peer.persistent_keepalive {
+                s += &format!("PersistentKeepalive = {ka}\n");
+            }
+        }
+        s
+    }
+}
+
 fn invalid(line: usize, key: &str, value: &str) -> ParseError {
     ParseError::InvalidValue {
         line,
@@ -321,5 +379,12 @@ PersistentKeepalive = 25
     fn fwmark_off_is_none() {
         let cfg: WgConfig = "[Interface]\nFwMark = off\n".parse().unwrap();
         assert_eq!(cfg.interface.fwmark, None);
+    }
+
+    #[test]
+    fn round_trips_through_conf_string() {
+        let cfg: WgConfig = SAMPLE.parse().unwrap();
+        let reparsed: WgConfig = cfg.to_conf_string().parse().unwrap();
+        assert_eq!(cfg, reparsed);
     }
 }

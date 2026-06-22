@@ -32,7 +32,12 @@ impl Manager {
 
     async fn get_tunnel(&self, id: String) -> fdo::Result<HashMap<String, OwnedValue>> {
         let tunnel = self.store.get(&id).map_err(to_fdo)?;
-        Ok(tunnel_to_dict(&tunnel))
+        let mut dict = tunnel_to_dict(&tunnel);
+        // The raw config (including the private key) is returned only on an
+        // explicit GetTunnel, for the editor and export.
+        // TODO: move secret material to KWallet instead of over the bus.
+        dict.insert("config".to_string(), owned(tunnel.config.to_conf_string()));
+        Ok(dict)
     }
 
     async fn import_config(&self, name: String, config: String) -> fdo::Result<String> {
@@ -51,6 +56,25 @@ impl Manager {
 
     async fn remove_tunnel(&self, id: String) -> fdo::Result<()> {
         self.store.remove(&id).map_err(to_fdo)
+    }
+
+    /// Create (empty id) or update a tunnel from wg-quick `.conf` text.
+    async fn save_tunnel(&self, id: String, name: String, config: String) -> fdo::Result<String> {
+        let parsed: WgConfig = config
+            .parse()
+            .map_err(|e| fdo::Error::InvalidArgs(format!("invalid config: {e}")))?;
+        let id = if id.is_empty() {
+            self.store.unique_id(&name).map_err(to_fdo)?
+        } else {
+            id
+        };
+        let tunnel = Tunnel {
+            id: id.clone(),
+            name,
+            config: parsed,
+        };
+        self.store.save(&tunnel).map_err(to_fdo)?;
+        Ok(id)
     }
 
     async fn connect(&self, _id: String) -> fdo::Result<()> {

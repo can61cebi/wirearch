@@ -1,0 +1,15 @@
+[package]
+name = "wirearchd"
+version = "0.1.0"
+edition = "2021"
+description = "WireArch privileged WireGuard service"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/can61cebi/wirearch"
+rust-version = "1.74"
+
+[[bin]]
+name = "wirearchd"
+path = "src/main.rs"
+
+[dependencies]
+thiserror = "2"

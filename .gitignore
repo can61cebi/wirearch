@@ -29,7 +29,7 @@ compile_commands.json
 .cache/
 
 # ---- Rust ----
-/target/
+target/
 **/*.rs.bk
 Cargo.lock.orig
 

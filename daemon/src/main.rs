@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 mod config;
+mod geo;
 mod manager;
 mod store;
 mod wg;

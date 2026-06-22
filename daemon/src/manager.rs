@@ -5,13 +5,14 @@
 //! layers land (tasks #2 and #3); they will be polkit-gated.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use zbus::fdo;
 use zbus::interface;
 use zbus::zvariant::{OwnedValue, Value};
 
 use crate::config::WgConfig;
+use crate::geo::GeoDb;
 use crate::store::{Store, Tunnel};
 use crate::wg;
 
@@ -24,6 +25,7 @@ struct ActiveTunnel {
 pub struct Manager {
     store: Store,
     active: Mutex<Option<ActiveTunnel>>,
+    geo: Option<Arc<GeoDb>>,
 }
 
 impl Manager {
@@ -31,6 +33,7 @@ impl Manager {
         Self {
             store,
             active: Mutex::new(None),
+            geo: GeoDb::open_default().map(Arc::new),
         }
     }
 }
@@ -130,6 +133,28 @@ impl Manager {
         Err(fdo::Error::NotSupported(
             "kill switch is not implemented yet".to_string(),
         ))
+    }
+
+    /// Resolve an endpoint (host:port or IP) to its country and ISP/ASN,
+    /// fully offline. Returns an empty dict if no GeoIP database is available.
+    async fn geo(&self, endpoint: String) -> fdo::Result<HashMap<String, OwnedValue>> {
+        let Some(db) = self.geo.clone() else {
+            return Ok(HashMap::new());
+        };
+        let resolved =
+            tokio::task::spawn_blocking(move || crate::geo::resolve_and_lookup(&db, &endpoint))
+                .await
+                .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?;
+        let Some((ip, info)) = resolved else {
+            return Ok(HashMap::new());
+        };
+        let mut m = HashMap::new();
+        m.insert("ip".to_string(), owned(ip.to_string()));
+        m.insert("countryCode".to_string(), owned(info.country_code));
+        m.insert("country".to_string(), owned(info.country_name));
+        m.insert("asn".to_string(), owned(info.asn));
+        m.insert("asOrg".to_string(), owned(info.as_org));
+        Ok(m)
     }
 
     #[zbus(property)]

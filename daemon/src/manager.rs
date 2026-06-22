@@ -1,11 +1,10 @@
-//! The `tr.cebi.wirearch.Manager` D-Bus interface.
-//!
-//! Tunnel management (import/list/get/remove) is implemented here. Connect,
-//! Disconnect and SetKillSwitch are stubs until the netlink and nftables
-//! layers land (tasks #2 and #3); they will be polkit-gated.
+//! The `tr.cebi.wirearch.Manager` D-Bus interface: tunnel CRUD, connect/
+//! disconnect over kernel netlink, live status, and offline geo lookups.
+//! SetKillSwitch is implemented in a later commit (nftables).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use zbus::fdo;
 use zbus::interface;
@@ -20,12 +19,15 @@ use crate::wg;
 struct ActiveTunnel {
     id: String,
     ifname: String,
+    connected_at: Instant,
 }
 
 pub struct Manager {
     store: Store,
     active: Mutex<Option<ActiveTunnel>>,
     geo: Option<Arc<GeoDb>>,
+    /// Total connected time accumulated from finished sessions since startup.
+    lifetime: Mutex<Duration>,
 }
 
 impl Manager {
@@ -34,6 +36,7 @@ impl Manager {
             store,
             active: Mutex::new(None),
             geo: GeoDb::open_default().map(Arc::new),
+            lifetime: Mutex::new(Duration::ZERO),
         }
     }
 }
@@ -99,8 +102,10 @@ impl Manager {
 
         let previous = self.active.lock().unwrap().clone();
         if let Some(prev) = previous {
-            let prev_if = prev.ifname;
+            let elapsed = prev.connected_at.elapsed();
+            let prev_if = prev.ifname.clone();
             let _ = tokio::task::spawn_blocking(move || wg::down(&prev_if)).await;
+            *self.lifetime.lock().unwrap() += elapsed;
         }
 
         let cfg = tunnel.config.clone();
@@ -110,7 +115,11 @@ impl Manager {
             .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
-        *self.active.lock().unwrap() = Some(ActiveTunnel { id, ifname });
+        *self.active.lock().unwrap() = Some(ActiveTunnel {
+            id,
+            ifname,
+            connected_at: Instant::now(),
+        });
         Ok(())
     }
 
@@ -125,8 +134,51 @@ impl Manager {
             .await
             .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        *self.lifetime.lock().unwrap() += active.connected_at.elapsed();
         *self.active.lock().unwrap() = None;
         Ok(())
+    }
+
+    /// Live status for a tunnel: throughput counters, last handshake, current
+    /// session duration, and total connected time since the service started.
+    async fn get_status(&self, id: String) -> fdo::Result<HashMap<String, OwnedValue>> {
+        let (active_ifname, since, total) = {
+            let active = self.active.lock().unwrap();
+            let lifetime = *self.lifetime.lock().unwrap();
+            match active.as_ref() {
+                Some(a) if a.id == id => {
+                    let s = a.connected_at.elapsed();
+                    (Some(a.ifname.clone()), s.as_secs(), (lifetime + s).as_secs())
+                }
+                _ => (None, 0u64, lifetime.as_secs()),
+            }
+        };
+
+        let mut m = HashMap::new();
+        m.insert("totalConnected".to_string(), owned(total));
+
+        let Some(ifn) = active_ifname else {
+            m.insert("state".to_string(), owned("inactive".to_string()));
+            m.insert("sinceConnected".to_string(), owned(0u64));
+            m.insert("rxBytes".to_string(), owned(0u64));
+            m.insert("txBytes".to_string(), owned(0u64));
+            m.insert("lastHandshake".to_string(), owned(0i64));
+            m.insert("endpoint".to_string(), owned(String::new()));
+            return Ok(m);
+        };
+
+        let stats = tokio::task::spawn_blocking(move || wg::stats(&ifn))
+            .await
+            .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        m.insert("state".to_string(), owned("active".to_string()));
+        m.insert("sinceConnected".to_string(), owned(since));
+        m.insert("rxBytes".to_string(), owned(stats.rx_bytes));
+        m.insert("txBytes".to_string(), owned(stats.tx_bytes));
+        m.insert("lastHandshake".to_string(), owned(stats.last_handshake));
+        m.insert("endpoint".to_string(), owned(stats.endpoint));
+        Ok(m)
     }
 
     async fn set_kill_switch(&self, _enabled: bool) -> fdo::Result<()> {
@@ -204,10 +256,7 @@ fn tunnel_to_dict(t: &Tunnel) -> HashMap<String, OwnedValue> {
     );
     m.insert("dns".to_string(), owned(t.config.interface.dns.join(", ")));
     m.insert("allowedIps".to_string(), owned(allowed_ips.join(", ")));
-    m.insert(
-        "peerCount".to_string(),
-        owned(t.config.peers.len() as u32),
-    );
+    m.insert("peerCount".to_string(), owned(t.config.peers.len() as u32));
     m
 }
 

@@ -2,6 +2,7 @@
 //! (generic netlink, through defguard_wireguard_rs). Requires CAP_NET_ADMIN.
 
 use std::net::IpAddr;
+use std::time::UNIX_EPOCH;
 
 use defguard_wireguard_rs::error::WireguardInterfaceError;
 use defguard_wireguard_rs::key::Key;
@@ -118,4 +119,40 @@ pub fn down(ifname: &str) -> Result<(), WgError> {
     let wgapi = WGApi::<Kernel>::new(ifname.to_string())?;
     wgapi.remove_interface()?;
     Ok(())
+}
+
+/// Live stats read from a running interface (summed across peers).
+#[derive(Debug, Default, Clone)]
+pub struct Stats {
+    pub rx_bytes: u64,
+    pub tx_bytes: u64,
+    /// Unix seconds of the most recent handshake; 0 means never.
+    pub last_handshake: i64,
+    pub endpoint: String,
+}
+
+/// Read live transfer counters and last-handshake time for `ifname`.
+pub fn stats(ifname: &str) -> Result<Stats, WgError> {
+    let wgapi = WGApi::<Kernel>::new(ifname.to_string())?;
+    let host = wgapi.read_interface_data()?;
+    let mut s = Stats::default();
+    for peer in host.peers.values() {
+        s.rx_bytes += peer.rx_bytes;
+        s.tx_bytes += peer.tx_bytes;
+        if let Some(t) = peer.last_handshake {
+            let secs = t
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            if secs > s.last_handshake {
+                s.last_handshake = secs;
+            }
+        }
+        if s.endpoint.is_empty() {
+            if let Some(ep) = peer.endpoint {
+                s.endpoint = ep.to_string();
+            }
+        }
+    }
+    Ok(s)
 }

@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None
         }
     };
-    let manager = Manager::new(store, metrics);
+    let manager = Manager::new(store, metrics, use_session);
 
     let builder = if use_session {
         eprintln!("wirearchd: connecting to the SESSION bus (dev mode)");

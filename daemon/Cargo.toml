@@ -19,3 +19,4 @@ zbus = { version = "5", default-features = false, features = ["tokio"] }
 defguard_wireguard_rs = "0.10"
 maxminddb = "0.28.1"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
+zbus_polkit = "5.0.0"

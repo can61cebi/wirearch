@@ -32,10 +32,12 @@ pub struct Manager {
     lifetime: Arc<Mutex<Duration>>,
     metrics: Option<Arc<Metrics>>,
     killswitch: Arc<Mutex<bool>>,
+    /// True when serving the session bus (dev mode): polkit checks are skipped.
+    session_mode: bool,
 }
 
 impl Manager {
-    pub fn new(store: Store, metrics: Option<Metrics>) -> Self {
+    pub fn new(store: Store, metrics: Option<Metrics>, session_mode: bool) -> Self {
         let active = Arc::new(Mutex::new(None));
         let lifetime = Arc::new(Mutex::new(Duration::ZERO));
         let metrics = metrics.map(Arc::new);
@@ -55,6 +57,7 @@ impl Manager {
             lifetime,
             metrics,
             killswitch: Arc::new(Mutex::new(false)),
+            session_mode,
         }
     }
 
@@ -75,6 +78,42 @@ impl Manager {
         })
         .await
         .map_err(|e| format!("join error: {e}"))?
+    }
+
+    /// Authorize a privileged action via polkit. Skipped in dev (session bus),
+    /// enforced for the installed system service.
+    async fn check_auth(
+        &self,
+        header: &zbus::message::Header<'_>,
+        connection: &zbus::Connection,
+        action: &str,
+    ) -> fdo::Result<()> {
+        use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
+        if self.session_mode {
+            return Ok(());
+        }
+        let authority = AuthorityProxy::new(connection)
+            .await
+            .map_err(|e| fdo::Error::Failed(format!("polkit: {e}")))?;
+        let subject = Subject::new_for_message_header(header)
+            .map_err(|e| fdo::Error::Failed(format!("polkit subject: {e}")))?;
+        let result = authority
+            .check_authorization(
+                &subject,
+                action,
+                &std::collections::HashMap::new(),
+                CheckAuthorizationFlags::AllowUserInteraction.into(),
+                "",
+            )
+            .await
+            .map_err(|e| fdo::Error::Failed(format!("polkit check: {e}")))?;
+        if result.is_authorized {
+            Ok(())
+        } else {
+            Err(fdo::Error::AccessDenied(format!(
+                "not authorized for {action}"
+            )))
+        }
     }
 }
 
@@ -133,7 +172,14 @@ impl Manager {
     }
 
     /// Bring a tunnel up (CAP_NET_ADMIN). Tears down the active tunnel first.
-    async fn connect(&self, id: String) -> fdo::Result<()> {
+    async fn connect(
+        &self,
+        id: String,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        #[zbus(connection)] connection: &zbus::Connection,
+    ) -> fdo::Result<()> {
+        self.check_auth(&header, connection, "tr.cebi.wirearch.connect")
+            .await?;
         let tunnel = self.store.get(&id).map_err(to_fdo)?;
         let ifname = wg::ifname_for(&tunnel.id);
 
@@ -176,7 +222,14 @@ impl Manager {
     }
 
     /// Bring the active tunnel down (CAP_NET_ADMIN).
-    async fn disconnect(&self, _id: String) -> fdo::Result<()> {
+    async fn disconnect(
+        &self,
+        _id: String,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        #[zbus(connection)] connection: &zbus::Connection,
+    ) -> fdo::Result<()> {
+        self.check_auth(&header, connection, "tr.cebi.wirearch.connect")
+            .await?;
         let active = self.active.lock().unwrap().clone();
         let Some(active) = active else {
             return Ok(());
@@ -275,7 +328,14 @@ impl Manager {
     }
 
     /// Enable or disable the fail-closed nftables kill switch.
-    async fn set_kill_switch(&self, enabled: bool) -> fdo::Result<()> {
+    async fn set_kill_switch(
+        &self,
+        enabled: bool,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        #[zbus(connection)] connection: &zbus::Connection,
+    ) -> fdo::Result<()> {
+        self.check_auth(&header, connection, "tr.cebi.wirearch.killswitch")
+            .await?;
         *self.killswitch.lock().unwrap() = enabled;
         self.apply_killswitch().await.map_err(fdo::Error::Failed)
     }

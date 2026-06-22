@@ -16,6 +16,7 @@ KDE already exposes WireGuard through plasma-nm/NetworkManager, but with real ga
 
 - **In-app `.conf` import and a built-in editor** - create or edit tunnels and generate keypairs without `nmcli`.
 - **Built-in kill switch** - fail-closed nftables rules; no traffic leaks if the tunnel drops.
+- **Connection verification** - after bringing a tunnel up, WireArch waits for a real WireGuard handshake; if the server is down, unreachable or the config is invalid, it tears the tunnel back down and tells you, instead of showing a false "connected".
 - **Multi-tunnel quick-switch** from a **Plasma panel widget** and the system tray.
 - **Hourly / daily usage metrics** with charts, backed by a local SQLite database.
 - **Per-server insight** - endpoint **country + flag**, **ISP / ASN (hosting provider)**, live throughput, current session duration and total connected time - all resolved **offline** for privacy.
@@ -31,6 +32,7 @@ GUI  (C++/Qt6 · QML/Kirigami · KStatusNotifierItem · Plasma plasmoid)
   ▼
 wirearchd  (Rust · runs with only CAP_NET_ADMIN · systemd-hardened)
   ├─ kernel WireGuard via generic netlink (no wg-quick shell-outs)
+  ├─ handshake verification (no false "connected" on dead endpoints)
   ├─ addresses, routes and full-tunnel policy routing (wg-quick style)
   ├─ kill switch via nftables (fail-closed)
   ├─ DNS for the tunnel (resolvconf)
@@ -95,6 +97,12 @@ testing, or use the installed system service. See [docs/BUILDING.md](docs/BUILDI
 ## Privacy
 
 GeoIP and ISP/ASN lookups use a **bundled offline database** - WireArch never sends your server IPs to a third-party geolocation API.
+
+## The logo
+
+WireArch's mark blends the two projects it stands on. The faceted blue triangle is the Arch Linux mountain, the "Arch" in the name and a nod to the distribution it targets. Carved into its base is a tunnel arch in WireGuard's signature maroon (`#88171a`), standing for the encrypted tunnel, the "Wire". Read together: an Arch mountain with a tunnel bored through it, Wire plus Arch.
+
+The wordmark is simply **WireArch**, written as one word with the embedded "Arch" capitalized to echo Arch Linux.
 
 ## License
 

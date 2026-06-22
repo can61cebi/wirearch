@@ -3,12 +3,12 @@
   <!-- Faceted mountain (Arch Linux style): lighter left face, darker right face -->
   <path d="M64 22 L16 106 L64 106 Z" fill="#29a8e0"/>
   <path d="M64 22 L64 106 L112 106 Z" fill="#1183bd"/>
-  <!-- Tunnel archway carved through the base (the "Arch") -->
-  <path d="M46 106 L46 80 A18 18 0 0 1 82 80 L82 106 Z" fill="#18222c"/>
-  <!-- Tunnel depth -->
-  <path d="M55 106 L55 86 A9 9 0 0 1 73 86 L73 106 Z" fill="#0c3a52"/>
-  <!-- Secure wire through the tunnel (WireGuard red) -->
-  <circle cx="50" cy="98" r="4.5" fill="#e5392e"/>
-  <circle cx="78" cy="98" r="4.5" fill="#e5392e"/>
-  <rect x="50" y="95.5" width="28" height="5" rx="2.5" fill="#e5392e"/>
+  <!-- Tunnel archway behind the bridge (WireGuard maroon) -->
+  <path d="M46 106 L46 80 A18 18 0 0 1 82 80 L82 106 Z" fill="#88171a"/>
+  <!-- Tunnel depth (darker maroon) -->
+  <path d="M55 106 L55 86 A9 9 0 0 1 73 86 L73 106 Z" fill="#5e1014"/>
+  <!-- Bridge / secure wire across the tunnel (white) -->
+  <circle cx="50" cy="98" r="4" fill="#eaf5fc"/>
+  <circle cx="78" cy="98" r="4" fill="#eaf5fc"/>
+  <rect x="50" y="96" width="28" height="4" rx="2" fill="#eaf5fc"/>
 </svg>

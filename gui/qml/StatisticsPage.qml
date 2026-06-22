@@ -42,6 +42,11 @@ Kirigami.ScrollablePage {
 
     actions: [
         Kirigami.Action {
+            text: i18nc("@action:button", "Close")
+            icon.name: "dialog-close"
+            onTriggered: applicationWindow().pageStack.pop()
+        },
+        Kirigami.Action {
             text: i18nc("@action", "Hourly")
             checkable: true
             checked: page.period === "hour"

@@ -95,6 +95,7 @@ Kirigami.ApplicationWindow {
                 id: row
                 required property var modelData
                 readonly property bool isActive: modelData.id === WireArchManager.activeTunnel
+                readonly property bool busy: modelData.id === WireArchManager.busyTunnel
                 property var geo: WireArchManager.geoFor(modelData.endpoint)
                 property var liveStatus: ({})
                 property real rxRate: 0
@@ -227,8 +228,12 @@ Kirigami.ApplicationWindow {
                     }
 
                     Controls.Button {
-                        text: row.isActive ? i18nc("@action:button", "Disconnect")
-                                           : i18nc("@action:button", "Connect")
+                        enabled: !row.busy
+                        text: row.busy
+                            ? (row.isActive ? i18nc("@info:status", "Disconnecting")
+                                            : i18nc("@info:status", "Connecting"))
+                            : (row.isActive ? i18nc("@action:button", "Disconnect")
+                                            : i18nc("@action:button", "Connect"))
                         icon.name: row.isActive ? "network-disconnect" : "network-connect"
                         onClicked: {
                             if (row.isActive) {

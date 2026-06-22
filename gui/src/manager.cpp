@@ -136,28 +136,42 @@ void WireArchManager::removeTunnel(const QString &id)
     refresh();
 }
 
-void WireArchManager::connectTunnel(const QString &id)
+QString WireArchManager::busyTunnel() const
+{
+    return m_busyTunnel;
+}
+
+// Call a privileged method asynchronously so the UI never blocks (Connect may
+// take several seconds while the daemon verifies the handshake).
+void WireArchManager::callAsync(const QString &method, const QString &id)
 {
     if (!m_iface) {
         return;
     }
-    const QDBusMessage reply = m_iface->call(QStringLiteral("Connect"), id);
-    if (reply.type() == QDBusMessage::ErrorMessage) {
-        Q_EMIT errorOccurred(reply.errorMessage());
-    }
-    refreshActive();
+    m_busyTunnel = id;
+    Q_EMIT busyTunnelChanged();
+    auto *watcher = new QDBusPendingCallWatcher(m_iface->asyncCall(method, id), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this](QDBusPendingCallWatcher *w) {
+                const QDBusMessage reply = w->reply();
+                if (reply.type() == QDBusMessage::ErrorMessage) {
+                    Q_EMIT errorOccurred(reply.errorMessage());
+                }
+                m_busyTunnel.clear();
+                Q_EMIT busyTunnelChanged();
+                refreshActive();
+                w->deleteLater();
+            });
+}
+
+void WireArchManager::connectTunnel(const QString &id)
+{
+    callAsync(QStringLiteral("Connect"), id);
 }
 
 void WireArchManager::disconnectTunnel(const QString &id)
 {
-    if (!m_iface) {
-        return;
-    }
-    const QDBusMessage reply = m_iface->call(QStringLiteral("Disconnect"), id);
-    if (reply.type() == QDBusMessage::ErrorMessage) {
-        Q_EMIT errorOccurred(reply.errorMessage());
-    }
-    refreshActive();
+    callAsync(QStringLiteral("Disconnect"), id);
 }
 
 QVariantMap WireArchManager::geoFor(const QString &endpoint)

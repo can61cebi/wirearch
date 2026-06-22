@@ -1,8 +1,8 @@
 //! Bringing WireGuard tunnels up and down via the in-kernel module
 //! (generic netlink, through defguard_wireguard_rs). Requires CAP_NET_ADMIN.
 
-use std::net::IpAddr;
-use std::time::UNIX_EPOCH;
+use std::net::{IpAddr, UdpSocket};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use defguard_wireguard_rs::error::WireguardInterfaceError;
 use defguard_wireguard_rs::key::Key;
@@ -155,4 +155,40 @@ pub fn stats(ifname: &str) -> Result<Stats, WgError> {
         }
     }
     Ok(s)
+}
+
+/// Best-effort: send a small datagram into the tunnel to coax WireGuard into
+/// starting a handshake (it only handshakes when there is traffic or keepalive).
+pub fn probe(cfg: &WgConfig) {
+    let mut targets: Vec<String> = cfg
+        .interface
+        .dns
+        .iter()
+        .filter(|d| d.parse::<IpAddr>().is_ok())
+        .map(|d| format!("{d}:53"))
+        .collect();
+    // A public resolver covers full-tunnel configs that route 0.0.0.0/0.
+    targets.push("1.1.1.1:53".to_string());
+    if let Ok(sock) = UdpSocket::bind("0.0.0.0:0") {
+        let _ = sock.set_write_timeout(Some(Duration::from_millis(300)));
+        for target in targets {
+            let _ = sock.send_to(&[0u8], target.as_str());
+        }
+    }
+}
+
+/// Poll the interface until a handshake completes or `timeout` elapses.
+pub fn wait_for_handshake(ifname: &str, timeout: Duration) -> bool {
+    let start = Instant::now();
+    loop {
+        if let Ok(s) = stats(ifname) {
+            if s.last_handshake > 0 {
+                return true;
+            }
+        }
+        if start.elapsed() >= timeout {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
 }

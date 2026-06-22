@@ -198,6 +198,28 @@ impl Manager {
             .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
+        // WireGuard's `up` always succeeds, so verify an actual handshake. A
+        // dead/unreachable endpoint or a wrong key never completes one; if so,
+        // tear the interface back down and report a clear failure.
+        let verify_if = ifname.clone();
+        let verify_cfg = tunnel.config.clone();
+        let handshook = tokio::task::spawn_blocking(move || {
+            wg::probe(&verify_cfg);
+            wg::wait_for_handshake(&verify_if, std::time::Duration::from_secs(8))
+        })
+        .await
+        .unwrap_or(false);
+
+        if !handshook {
+            let down_if = ifname.clone();
+            let _ = tokio::task::spawn_blocking(move || wg::down(&down_if)).await;
+            return Err(fdo::Error::Failed(format!(
+                "No WireGuard handshake from '{}' within 8s; the server may be \
+                 down or unreachable, or the configuration may be invalid.",
+                tunnel.name
+            )));
+        }
+
         let ep_if = ifname.clone();
         let endpoint = tokio::task::spawn_blocking(move || wg::stats(&ep_if))
             .await
@@ -235,10 +257,12 @@ impl Manager {
             return Ok(());
         };
         let ifn = active.ifname;
-        tokio::task::spawn_blocking(move || wg::down(&ifn))
-            .await
-            .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
-            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        // Best-effort teardown: the interface deletion is what matters; ignore
+        // errors from cleanup steps (e.g. ENODEV if it is already gone) and
+        // always clear the active state so the UI shows "disconnected".
+        if let Ok(Err(e)) = tokio::task::spawn_blocking(move || wg::down(&ifn)).await {
+            eprintln!("wirearchd: teardown reported: {e}");
+        }
         *self.lifetime.lock().unwrap() += active.connected_at.elapsed();
         *self.active.lock().unwrap() = None;
 

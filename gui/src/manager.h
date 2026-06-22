@@ -20,6 +20,7 @@ class WireArchManager : public QObject
     Q_PROPERTY(QVariantList tunnels READ tunnels NOTIFY tunnelsChanged)
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(QString activeTunnel READ activeTunnel NOTIFY activeTunnelChanged)
+    Q_PROPERTY(QString busyTunnel READ busyTunnel NOTIFY busyTunnelChanged)
 
 public:
     explicit WireArchManager(QObject *parent = nullptr);
@@ -27,6 +28,7 @@ public:
     QVariantList tunnels() const;
     bool available() const;
     QString activeTunnel() const;
+    QString busyTunnel() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE QString importFile(const QString &name, const QString &fileUrl);
@@ -55,16 +57,19 @@ Q_SIGNALS:
     void tunnelsChanged();
     void availableChanged();
     void activeTunnelChanged();
+    void busyTunnelChanged();
     void geoUpdated(const QString &endpoint);
     void errorOccurred(const QString &message);
 
 private:
     void setAvailable(bool available);
     void refreshActive();
+    void callAsync(const QString &method, const QString &id);
 
     QDBusInterface *m_iface = nullptr;
     QVariantList m_tunnels;
     bool m_available = false;
     QString m_activeTunnel;
+    QString m_busyTunnel;
     QHash<QString, QVariantMap> m_geoCache;
 };

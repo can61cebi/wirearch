@@ -14,6 +14,13 @@
 *.mmdb
 *.mmdb.gz
 
+# ---- makepkg build artifacts (under packaging/) ----
+/packaging/src/
+/packaging/pkg/
+/packaging/wirearch/
+/packaging/*.pkg.tar.*
+/packaging/*.log
+
 # ---- C/C++ / CMake build output ----
 /build/
 /build-*/

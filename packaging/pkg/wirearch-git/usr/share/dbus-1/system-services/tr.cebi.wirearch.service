@@ -1,5 +1,0 @@
-[D-BUS Service]
-Name=tr.cebi.wirearch
-Exec=/usr/lib/wirearch/wirearchd
-User=root
-SystemdService=wirearchd.service

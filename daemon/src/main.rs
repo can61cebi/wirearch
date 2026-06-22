@@ -3,6 +3,7 @@
 
 mod config;
 mod geo;
+mod killswitch;
 mod manager;
 mod metrics;
 mod store;

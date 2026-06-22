@@ -21,6 +21,7 @@ struct ActiveTunnel {
     id: String,
     ifname: String,
     connected_at: Instant,
+    endpoint: String,
 }
 
 pub struct Manager {
@@ -30,6 +31,7 @@ pub struct Manager {
     /// Total connected time accumulated from finished sessions since startup.
     lifetime: Arc<Mutex<Duration>>,
     metrics: Option<Arc<Metrics>>,
+    killswitch: Arc<Mutex<bool>>,
 }
 
 impl Manager {
@@ -52,7 +54,27 @@ impl Manager {
             geo: GeoDb::open_default().map(Arc::new),
             lifetime,
             metrics,
+            killswitch: Arc::new(Mutex::new(false)),
         }
+    }
+
+    /// Apply or remove the nftables kill switch based on the current
+    /// preference and active tunnel. Runs `nft` off the async executor.
+    async fn apply_killswitch(&self) -> Result<(), String> {
+        let enabled = *self.killswitch.lock().unwrap();
+        let active = self.active.lock().unwrap().clone();
+        tokio::task::spawn_blocking(move || {
+            if !enabled {
+                return crate::killswitch::disable().map_err(|e| e.to_string());
+            }
+            match active {
+                Some(a) => crate::killswitch::enable(Some(&a.ifname), Some(&a.endpoint)),
+                None => crate::killswitch::enable(None, None),
+            }
+            .map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| format!("join error: {e}"))?
     }
 }
 
@@ -130,11 +152,26 @@ impl Manager {
             .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
+        let ep_if = ifname.clone();
+        let endpoint = tokio::task::spawn_blocking(move || wg::stats(&ep_if))
+            .await
+            .ok()
+            .and_then(|r| r.ok())
+            .map(|s| s.endpoint)
+            .unwrap_or_default();
+
         *self.active.lock().unwrap() = Some(ActiveTunnel {
             id,
             ifname,
             connected_at: Instant::now(),
+            endpoint,
         });
+
+        if *self.killswitch.lock().unwrap() {
+            if let Err(e) = self.apply_killswitch().await {
+                eprintln!("wirearchd: kill switch update failed: {e}");
+            }
+        }
         Ok(())
     }
 
@@ -151,6 +188,13 @@ impl Manager {
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         *self.lifetime.lock().unwrap() += active.connected_at.elapsed();
         *self.active.lock().unwrap() = None;
+
+        if *self.killswitch.lock().unwrap() {
+            // Stay fail-closed with no active tunnel (blocks all but lo/established).
+            if let Err(e) = self.apply_killswitch().await {
+                eprintln!("wirearchd: kill switch update failed: {e}");
+            }
+        }
         Ok(())
     }
 
@@ -230,10 +274,10 @@ impl Manager {
             .collect())
     }
 
-    async fn set_kill_switch(&self, _enabled: bool) -> fdo::Result<()> {
-        Err(fdo::Error::NotSupported(
-            "kill switch is not implemented yet".to_string(),
-        ))
+    /// Enable or disable the fail-closed nftables kill switch.
+    async fn set_kill_switch(&self, enabled: bool) -> fdo::Result<()> {
+        *self.killswitch.lock().unwrap() = enabled;
+        self.apply_killswitch().await.map_err(fdo::Error::Failed)
     }
 
     /// Resolve an endpoint (host:port or IP) to its country and ISP/ASN,
@@ -275,7 +319,7 @@ impl Manager {
 
     #[zbus(property)]
     async fn kill_switch_enabled(&self) -> bool {
-        false
+        *self.killswitch.lock().unwrap()
     }
 }
 

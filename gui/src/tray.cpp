@@ -44,7 +44,7 @@ void Tray::rebuild()
 {
     const QString active = m_manager->activeTunnel();
     m_sni->setStatus(active.isEmpty() ? KStatusNotifierItem::Passive : KStatusNotifierItem::Active);
-    m_sni->setToolTip(QStringLiteral("network-vpn"), i18n("WireArch"),
+    m_sni->setToolTip(QStringLiteral("wirearch"), i18n("WireArch"),
                       active.isEmpty() ? i18n("Not connected") : i18n("Connected"));
 
     QMenu *menu = m_sni->contextMenu();

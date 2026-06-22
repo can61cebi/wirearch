@@ -39,6 +39,7 @@ target_link_libraries(wirearch PRIVATE
     KF6::I18n
     KF6::I18nQml
     KF6::StatusNotifierItem
+    KF6::DBusAddons
 )
 
 install(TARGETS wirearch ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})

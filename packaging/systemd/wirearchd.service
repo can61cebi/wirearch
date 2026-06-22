@@ -19,7 +19,10 @@ RuntimeDirectory=wirearch
 StateDirectory=wirearch
 
 # --- Sandboxing (systemd.exec) ---
-ProtectSystem=strict
+# ProtectSystem=true (not strict): full-tunnel routing writes net.* sysctls and
+# DNS via resolvconf needs /etc writable. ProtectKernelTunables is omitted for
+# the same reason (the daemon sets src_valid_mark for full-tunnel routing).
+ProtectSystem=true
 ProtectHome=yes
 PrivateTmp=yes
 # AF_NETLINK is REQUIRED for WireGuard/route/nftables configuration.
@@ -30,7 +33,6 @@ RestrictNamespaces=yes
 LockPersonality=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
-ProtectKernelTunables=yes
 ProtectControlGroups=yes
 MemoryDenyWriteExecute=yes
 # NOTE: ProtectKernelModules is intentionally NOT enabled - it would block

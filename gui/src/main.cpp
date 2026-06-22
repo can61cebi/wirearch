@@ -5,6 +5,7 @@
 #include <QWindow>
 
 #include <KAboutData>
+#include <KDBusService>
 #include <KLocalizedContext>
 #include <KLocalizedString>
 
@@ -30,6 +31,9 @@ int main(int argc, char *argv[])
     aboutData.setHomepage(QStringLiteral("https://github.com/can61cebi/wirearch"));
     KAboutData::setApplicationData(aboutData);
 
+    // Single instance: a second launch just raises the running window.
+    KDBusService service(KDBusService::Unique);
+
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
         QQuickStyle::setStyle(QStringLiteral("org.kde.desktop"));
     }
@@ -46,6 +50,15 @@ int main(int argc, char *argv[])
     auto *window = qobject_cast<QWindow *>(engine.rootObjects().constFirst());
     if (manager && window) {
         new Tray(manager, window, &app);
+    }
+
+    if (window) {
+        QObject::connect(&service, &KDBusService::activateRequested, window,
+                         [window](const QStringList &, const QString &) {
+                             window->show();
+                             window->raise();
+                             window->requestActivate();
+                         });
     }
 
     return app.exec();

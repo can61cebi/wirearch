@@ -17,27 +17,34 @@ class WireArchManager : public QObject
     QML_SINGLETON
     Q_PROPERTY(QVariantList tunnels READ tunnels NOTIFY tunnelsChanged)
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
+    Q_PROPERTY(QString activeTunnel READ activeTunnel NOTIFY activeTunnelChanged)
 
 public:
     explicit WireArchManager(QObject *parent = nullptr);
 
     QVariantList tunnels() const;
     bool available() const;
+    QString activeTunnel() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE QString importFile(const QString &name, const QString &fileUrl);
     Q_INVOKABLE QString importText(const QString &name, const QString &configText);
     Q_INVOKABLE void removeTunnel(const QString &id);
+    Q_INVOKABLE void connectTunnel(const QString &id);
+    Q_INVOKABLE void disconnectTunnel(const QString &id);
 
 Q_SIGNALS:
     void tunnelsChanged();
     void availableChanged();
+    void activeTunnelChanged();
     void errorOccurred(const QString &message);
 
 private:
     void setAvailable(bool available);
+    void refreshActive();
 
     QDBusInterface *m_iface = nullptr;
     QVariantList m_tunnels;
     bool m_available = false;
+    QString m_activeTunnel;
 };

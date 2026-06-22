@@ -38,11 +38,28 @@ bool WireArchManager::available() const
     return m_available;
 }
 
+QString WireArchManager::activeTunnel() const
+{
+    return m_activeTunnel;
+}
+
 void WireArchManager::setAvailable(bool available)
 {
     if (m_available != available) {
         m_available = available;
         Q_EMIT availableChanged();
+    }
+}
+
+void WireArchManager::refreshActive()
+{
+    if (!m_iface) {
+        return;
+    }
+    const QString id = m_iface->property("ActiveTunnel").toString();
+    if (id != m_activeTunnel) {
+        m_activeTunnel = id;
+        Q_EMIT activeTunnelChanged();
     }
 }
 
@@ -71,6 +88,7 @@ void WireArchManager::refresh()
     m_tunnels = tunnels;
     setAvailable(true);
     Q_EMIT tunnelsChanged();
+    refreshActive();
 }
 
 QString WireArchManager::importFile(const QString &name, const QString &fileUrl)
@@ -118,4 +136,28 @@ void WireArchManager::removeTunnel(const QString &id)
         return;
     }
     refresh();
+}
+
+void WireArchManager::connectTunnel(const QString &id)
+{
+    if (!m_iface) {
+        return;
+    }
+    const QDBusMessage reply = m_iface->call(QStringLiteral("Connect"), id);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        Q_EMIT errorOccurred(reply.errorMessage());
+    }
+    refreshActive();
+}
+
+void WireArchManager::disconnectTunnel(const QString &id)
+{
+    if (!m_iface) {
+        return;
+    }
+    const QDBusMessage reply = m_iface->call(QStringLiteral("Disconnect"), id);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        Q_EMIT errorOccurred(reply.errorMessage());
+    }
+    refreshActive();
 }

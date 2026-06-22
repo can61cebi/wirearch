@@ -47,6 +47,7 @@ Kirigami.ApplicationWindow {
             delegate: Controls.ItemDelegate {
                 id: delegateItem
                 required property var modelData
+                readonly property bool isActive: modelData.id === WireArchManager.activeTunnel
                 width: ListView.view.width
 
                 contentItem: RowLayout {
@@ -69,17 +70,37 @@ Kirigami.ApplicationWindow {
                             Layout.fillWidth: true
                         }
                         Controls.Label {
-                            text: delegateItem.modelData.endpoint
+                            text: delegateItem.isActive
+                                ? i18nc("@info:status", "Connected")
+                                : delegateItem.modelData.endpoint
+                            color: delegateItem.isActive
+                                ? Kirigami.Theme.positiveTextColor
+                                : Kirigami.Theme.textColor
+                            opacity: delegateItem.isActive ? 1.0 : 0.7
                             font: Kirigami.Theme.smallFont
-                            opacity: 0.7
                             elide: Text.ElideRight
                             Layout.fillWidth: true
+                        }
+                    }
+
+                    Controls.Button {
+                        text: delegateItem.isActive
+                            ? i18nc("@action:button", "Disconnect")
+                            : i18nc("@action:button", "Connect")
+                        icon.name: delegateItem.isActive ? "network-disconnect" : "network-connect"
+                        onClicked: {
+                            if (delegateItem.isActive) {
+                                WireArchManager.disconnectTunnel(delegateItem.modelData.id)
+                            } else {
+                                WireArchManager.connectTunnel(delegateItem.modelData.id)
+                            }
                         }
                     }
 
                     Controls.ToolButton {
                         icon.name: "edit-delete"
                         display: Controls.AbstractButton.IconOnly
+                        enabled: !delegateItem.isActive
                         Controls.ToolTip.text: i18nc("@info:tooltip", "Remove tunnel")
                         Controls.ToolTip.visible: hovered
                         onClicked: WireArchManager.removeTunnel(delegateItem.modelData.id)

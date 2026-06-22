@@ -29,6 +29,7 @@ find_package(KF6 ${KF6_MIN_VERSION} REQUIRED COMPONENTS
     I18n
     Config
     Kirigami
+    StatusNotifierItem
 )
 
 add_subdirectory(gui)
@@ -49,5 +50,13 @@ install(FILES packaging/systemd/wirearch.sysusers
         DESTINATION /usr/lib/sysusers.d)
 install(FILES packaging/modules-load.d/wirearch.conf
         DESTINATION /usr/lib/modules-load.d)
+
+# ---- Plasma panel widget (optional) ----
+find_package(Plasma ${KF6_MIN_VERSION} QUIET)
+if(Plasma_FOUND)
+    plasma_install_package(plasmoid/package tr.cebi.wirearch)
+else()
+    message(STATUS "libplasma not found; the Plasma panel widget will not be installed")
+endif()
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)

@@ -4,6 +4,7 @@ target_include_directories(wirearch PRIVATE src)
 
 target_sources(wirearch PRIVATE
     src/main.cpp
+    src/tray.cpp
 )
 
 qt_add_qml_module(wirearch
@@ -37,6 +38,7 @@ target_link_libraries(wirearch PRIVATE
     KF6::CoreAddons
     KF6::I18n
     KF6::I18nQml
+    KF6::StatusNotifierItem
 )
 
 install(TARGETS wirearch ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})

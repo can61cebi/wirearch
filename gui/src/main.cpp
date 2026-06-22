@@ -2,14 +2,19 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QWindow>
 
 #include <KAboutData>
 #include <KLocalizedContext>
 #include <KLocalizedString>
 
+#include "manager.h"
+#include "tray.h"
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    QApplication::setQuitOnLastWindowClosed(false);
 
     KLocalizedString::setApplicationDomain(QByteArrayLiteral("wirearch"));
     QApplication::setOrganizationName(QStringLiteral("WireArch"));
@@ -34,6 +39,13 @@ int main(int argc, char *argv[])
     engine.loadFromModule("org.kde.wirearch", "Main");
     if (engine.rootObjects().isEmpty()) {
         return -1;
+    }
+
+    auto *manager =
+        engine.singletonInstance<WireArchManager *>("org.kde.wirearch", "WireArchManager");
+    auto *window = qobject_cast<QWindow *>(engine.rootObjects().constFirst());
+    if (manager && window) {
+        new Tray(manager, window, &app);
     }
 
     return app.exec();

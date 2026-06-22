@@ -5,6 +5,7 @@
 //! layers land (tasks #2 and #3); they will be polkit-gated.
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use zbus::fdo;
 use zbus::interface;
@@ -12,14 +13,25 @@ use zbus::zvariant::{OwnedValue, Value};
 
 use crate::config::WgConfig;
 use crate::store::{Store, Tunnel};
+use crate::wg;
+
+#[derive(Clone, Debug)]
+struct ActiveTunnel {
+    id: String,
+    ifname: String,
+}
 
 pub struct Manager {
     store: Store,
+    active: Mutex<Option<ActiveTunnel>>,
 }
 
 impl Manager {
     pub fn new(store: Store) -> Self {
-        Self { store }
+        Self {
+            store,
+            active: Mutex::new(None),
+        }
     }
 }
 
@@ -77,16 +89,41 @@ impl Manager {
         Ok(id)
     }
 
-    async fn connect(&self, _id: String) -> fdo::Result<()> {
-        Err(fdo::Error::NotSupported(
-            "connect is not implemented yet".to_string(),
-        ))
+    /// Bring a tunnel up (CAP_NET_ADMIN). Tears down the active tunnel first.
+    async fn connect(&self, id: String) -> fdo::Result<()> {
+        let tunnel = self.store.get(&id).map_err(to_fdo)?;
+        let ifname = wg::ifname_for(&tunnel.id);
+
+        let previous = self.active.lock().unwrap().clone();
+        if let Some(prev) = previous {
+            let prev_if = prev.ifname;
+            let _ = tokio::task::spawn_blocking(move || wg::down(&prev_if)).await;
+        }
+
+        let cfg = tunnel.config.clone();
+        let ifn = ifname.clone();
+        tokio::task::spawn_blocking(move || wg::up(&ifn, &cfg))
+            .await
+            .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
+        *self.active.lock().unwrap() = Some(ActiveTunnel { id, ifname });
+        Ok(())
     }
 
+    /// Bring the active tunnel down (CAP_NET_ADMIN).
     async fn disconnect(&self, _id: String) -> fdo::Result<()> {
-        Err(fdo::Error::NotSupported(
-            "disconnect is not implemented yet".to_string(),
-        ))
+        let active = self.active.lock().unwrap().clone();
+        let Some(active) = active else {
+            return Ok(());
+        };
+        let ifn = active.ifname;
+        tokio::task::spawn_blocking(move || wg::down(&ifn))
+            .await
+            .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        *self.active.lock().unwrap() = None;
+        Ok(())
     }
 
     async fn set_kill_switch(&self, _enabled: bool) -> fdo::Result<()> {
@@ -102,7 +139,12 @@ impl Manager {
 
     #[zbus(property)]
     async fn active_tunnel(&self) -> String {
-        String::new()
+        self.active
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|a| a.id.clone())
+            .unwrap_or_default()
     }
 
     #[zbus(property)]

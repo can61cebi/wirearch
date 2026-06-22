@@ -4,6 +4,7 @@
 mod config;
 mod manager;
 mod store;
+mod wg;
 
 use std::path::PathBuf;
 

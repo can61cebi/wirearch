@@ -1,0 +1,24 @@
+# WireArch example tunnel — sanitized sample (safe to commit).
+# Real tunnels live as *.conf and are gitignored. NEVER commit real keys.
+
+[Interface]
+# The client's private key (keep secret). Generate with: wg genkey
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+# Address(es) assigned to this peer inside the tunnel
+Address = 10.0.0.2/32, fd00::2/128
+# DNS server(s) to use while the tunnel is up
+DNS = 10.0.0.1
+# Optional MTU override (auto-detected if omitted)
+# MTU = 1420
+
+[Peer]
+# The server's public key
+PublicKey = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+# Optional pre-shared key for an extra symmetric layer
+# PresharedKey = CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=
+# Server endpoint host:port. host may be a hostname or an IP literal.
+Endpoint = vpn.example.com:51820
+# Traffic routed into the tunnel. 0.0.0.0/0, ::/0 = full tunnel.
+AllowedIPs = 0.0.0.0/0, ::/0
+# Keepalive (seconds) to keep NAT mappings alive
+PersistentKeepalive = 25

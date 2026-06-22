@@ -1,0 +1,51 @@
+# ============================================================
+#  PRIVATE — real WireGuard test configs (NEVER commit/push)
+# ============================================================
+*.conf
+hetzner.conf
+leventproxmox.conf
+turhost.conf
+/test-configs/
+/secrets/
+*.key
+*_private*
+# Sanitized samples live as *.conf.example (not matched by *.conf)
+
+# ---- GeoIP databases (large; shipped/downloaded separately) ----
+*.mmdb
+*.mmdb.gz
+
+# ---- C/C++ / CMake build output ----
+/build/
+/build-*/
+cmake-build-*/
+*.o
+*.so
+*.a
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+.cache/
+
+# ---- Rust ----
+/target/
+**/*.rs.bk
+Cargo.lock.orig
+
+# ---- Qt / KDE generated ----
+*.user
+*.qmlc
+*.jsc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+.directory

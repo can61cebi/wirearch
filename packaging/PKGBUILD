@@ -1,0 +1,49 @@
+# Maintainer: can61cebi <can61cebi@gmail.com>
+pkgname=wirearch-git
+_pkg=wirearch
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A native KDE Plasma 6 WireGuard VPN client for Arch Linux"
+arch=('x86_64')
+url="https://github.com/can61cebi/wirearch"
+license=('GPL-3.0-or-later')
+depends=('qt6-base' 'qt6-declarative' 'qt6-svg'
+         'kcoreaddons' 'ki18n' 'kconfig' 'kirigami' 'kirigami-addons'
+         'kstatusnotifieritem' 'knotifications' 'kwallet'
+         'nftables' 'wireguard-tools')
+makedepends=('git' 'cargo' 'cmake' 'extra-cmake-modules' 'ninja' 'qt6-tools')
+optdepends=('plasma-desktop: panel widget integration')
+provides=('wirearch')
+conflicts=('wirearch')
+options=('!lto' '!debug')
+source=("git+https://github.com/can61cebi/wirearch.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$_pkg"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cd "$_pkg"
+    # Privileged daemon (Rust)
+    cargo build --release --locked --manifest-path daemon/Cargo.toml
+    # GUI + system integration (CMake/ECM)
+    cmake -B build -S . -G Ninja \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -Wno-dev
+    cmake --build build
+}
+
+package() {
+    cd "$_pkg"
+    DESTDIR="$pkgdir" cmake --install build
+    install -Dm755 daemon/target/release/wirearchd "$pkgdir/usr/lib/wirearch/wirearchd"
+
+    # Offline GeoIP databases (DB-IP Lite, CC BY 4.0)
+    install -d "$pkgdir/usr/share/wirearch/geoip"
+    if ! ./scripts/fetch-geoip.sh "$pkgdir/usr/share/wirearch/geoip"; then
+        warning "GeoIP databases not fetched; country/ISP info will be unavailable"
+    fi
+}

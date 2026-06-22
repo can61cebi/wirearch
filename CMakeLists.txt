@@ -33,4 +33,21 @@ find_package(KF6 ${KF6_MIN_VERSION} REQUIRED COMPONENTS
 
 add_subdirectory(gui)
 
+# ---- System integration files (the daemon binary is installed by the PKGBUILD) ----
+install(FILES packaging/org.kde.wirearch.desktop
+        DESTINATION ${KDE_INSTALL_APPDIR})
+install(FILES packaging/dbus/tr.cebi.wirearch.conf
+        DESTINATION /usr/share/dbus-1/system.d)
+install(FILES packaging/dbus/tr.cebi.wirearch.service
+        DESTINATION /usr/share/dbus-1/system-services)
+install(FILES packaging/polkit/tr.cebi.wirearch.policy
+        DESTINATION /usr/share/polkit-1/actions)
+install(FILES packaging/systemd/wirearchd.service
+        DESTINATION /usr/lib/systemd/system)
+install(FILES packaging/systemd/wirearch.sysusers
+        RENAME wirearch.conf
+        DESTINATION /usr/lib/sysusers.d)
+install(FILES packaging/modules-load.d/wirearch.conf
+        DESTINATION /usr/lib/modules-load.d)
+
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)

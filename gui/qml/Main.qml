@@ -62,6 +62,11 @@ Kirigami.ApplicationWindow {
                 text: i18nc("@action:button", "Refresh")
                 icon.name: "view-refresh"
                 onTriggered: WireArchManager.refresh()
+            },
+            Kirigami.Action {
+                text: i18nc("@action:button", "Statistics")
+                icon.name: "office-chart-bar"
+                onTriggered: root.pageStack.push(statisticsComponent)
             }
         ]
 
@@ -249,6 +254,11 @@ Kirigami.ApplicationWindow {
                 }
             }
         }
+    }
+
+    Component {
+        id: statisticsComponent
+        StatisticsPage {}
     }
 
     FileDialog {

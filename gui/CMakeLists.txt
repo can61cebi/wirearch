@@ -10,6 +10,7 @@ qt_add_qml_module(wirearch
     URI org.kde.wirearch
     QML_FILES
         qml/Main.qml
+        qml/StatisticsPage.qml
     SOURCES
         src/manager.h
         src/manager.cpp

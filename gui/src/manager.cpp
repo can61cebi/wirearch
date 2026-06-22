@@ -197,6 +197,25 @@ QVariantMap WireArchManager::statusFor(const QString &id)
     return qdbus_cast<QVariantMap>(reply.arguments().value(0));
 }
 
+QVariantList WireArchManager::metrics(const QString &period, int count)
+{
+    if (!m_iface) {
+        return QVariantList();
+    }
+    const QDBusMessage reply =
+        m_iface->call(QStringLiteral("GetMetrics"), period, static_cast<uint>(count));
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        Q_EMIT errorOccurred(reply.errorMessage());
+        return QVariantList();
+    }
+    QVariantList out;
+    const auto list = qdbus_cast<QList<QVariantMap>>(reply.arguments().value(0));
+    for (const QVariantMap &bucket : list) {
+        out.append(bucket);
+    }
+    return out;
+}
+
 QString WireArchManager::flagSource(const QString &countryCode) const
 {
     if (countryCode.isEmpty()) {

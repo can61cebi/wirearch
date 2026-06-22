@@ -40,6 +40,8 @@ public:
     Q_INVOKABLE QVariantMap geoFor(const QString &endpoint);
     /// Live status for a tunnel (synchronous; call periodically while active).
     Q_INVOKABLE QVariantMap statusFor(const QString &id);
+    /// Usage rollups for charts ("hour" or "day"), most-recent `count` buckets.
+    Q_INVOKABLE QVariantList metrics(const QString &period, int count);
     /// Resource path of the flag for a 2-letter country code (empty if none).
     Q_INVOKABLE QString flagSource(const QString &countryCode) const;
 

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (Arch Linux)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git nodejs base-devel rust cmake extra-cmake-modules ninja \
+            qt6-base qt6-declarative qt6-svg \
+            kcoreaddons ki18n kconfig kirigami kirigami-addons \
+            kstatusnotifieritem knotifications kwallet libplasma \
+            nftables wireguard-tools
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Mark workspace safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Build and test daemon
+        run: |
+          cargo build --release --locked --manifest-path daemon/Cargo.toml
+          cargo test --manifest-path daemon/Cargo.toml
+
+      - name: Build GUI and Plasma widget
+        run: |
+          cmake -B build -S . -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -Wno-dev
+          cmake --build build

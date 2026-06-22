@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git nodejs base-devel rust cmake extra-cmake-modules ninja curl \
+            qt6-base qt6-declarative qt6-svg \
+            kcoreaddons ki18n kconfig kirigami kirigami-addons \
+            kstatusnotifieritem knotifications kwallet libplasma \
+            nftables wireguard-tools
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Mark workspace safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Build daemon
+        run: cargo build --release --locked --manifest-path daemon/Cargo.toml
+
+      - name: Build GUI and Plasma widget
+        run: |
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=None -DCMAKE_INSTALL_PREFIX=/usr -Wno-dev
+          cmake --build build
+
+      - name: Stage install tree
+        run: |
+          DESTDIR="$PWD/dist" cmake --install build
+          install -Dm755 daemon/target/release/wirearchd "$PWD/dist/usr/lib/wirearch/wirearchd"
+          install -d "$PWD/dist/usr/share/wirearch/geoip"
+          ./scripts/fetch-geoip.sh "$PWD/dist/usr/share/wirearch/geoip" || true
+
+      - name: Create tarball
+        run: tar -C dist -czf "wirearch-${GITHUB_REF_NAME}-x86_64.tar.gz" .
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: wirearch-*.tar.gz
+          generate_release_notes: true

@@ -19,7 +19,7 @@ This document records the design decisions and their rationale. Target platform:
 - **Links / addresses / routes:** [`rtnetlink`](https://docs.rs/rtnetlink). Full-tunnel policy routing uses `fwmark` + a dedicated routing table + `suppress_prefixlength 0` (the same technique as `wg-quick`).
 - **Kill switch:** nftables via [`rustables`](https://docs.rs/rustables) - an `inet` table with a fail-closed `output` chain permitting only loopback, established/related, the tunnel interface, and the pinned `endpoint:port` handshake (plus optional LAN).
 - **DNS:** systemd-resolved over D-Bus (`org.freedesktop.resolve1`), setting per-link DNS and the `~.` routing domain for leak-safe full-tunnel.
-- **Metrics:** polls netlink every 15–30 s, stores in SQLite via [`rusqlite`](https://docs.rs/rusqlite).
+- **Metrics:** polls netlink every 15-30 s, stores in SQLite via [`rusqlite`](https://docs.rs/rusqlite).
 - **GeoIP:** offline `.mmdb` lookups via [`maxminddb`](https://crates.io/crates/maxminddb) (≥ 0.27 - earlier versions carry RUSTSEC-2025-0132).
 
 ### 2. `wirearch` - GUI (C++ / Qt6 / QML / Kirigami)

@@ -41,7 +41,7 @@ PlasmoidItem {
         onTriggered: root.poll()
     }
 
-    Plasmoid.icon: "wirearch"
+    Plasmoid.icon: "wirearch-symbolic"
     toolTipSubText: root.connected
         ? i18n("Connected: %1", root.activeTunnel)
         : i18n("Not connected")
@@ -49,7 +49,7 @@ PlasmoidItem {
     compactRepresentation: Item {
         Kirigami.Icon {
             anchors.fill: parent
-            source: "wirearch"
+            source: "wirearch-symbolic"
             opacity: root.connected ? 1.0 : 0.5
         }
         MouseArea {

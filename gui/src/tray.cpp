@@ -20,7 +20,7 @@ Tray::Tray(WireArchManager *manager, QWindow *window, QObject *parent)
     m_sni->setTitle(i18n("WireArch"));
     m_sni->setCategory(KStatusNotifierItem::ApplicationStatus);
     m_sni->setStandardActionsEnabled(false);
-    m_sni->setIconByName(QStringLiteral("wirearch"));
+    m_sni->setIconByName(QStringLiteral("wirearch-symbolic"));
 
     connect(m_sni, &KStatusNotifierItem::activateRequested, this,
             [this](bool, const QPoint &) { showWindow(); });

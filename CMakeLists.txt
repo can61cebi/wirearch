@@ -40,6 +40,8 @@ install(FILES packaging/org.kde.wirearch.desktop
         DESTINATION ${KDE_INSTALL_APPDIR})
 install(FILES branding/wirearch.svg
         DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
+install(FILES branding/wirearch-symbolic.svg
+        DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
 install(FILES packaging/dbus/tr.cebi.wirearch.conf
         DESTINATION /usr/share/dbus-1/system.d)
 install(FILES packaging/dbus/tr.cebi.wirearch.service

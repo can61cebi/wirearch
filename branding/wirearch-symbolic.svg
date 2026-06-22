@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="WireArch">
+  <defs>
+    <style type="text/css">.ColorScheme-Text { color: #dee1e3; }</style>
+  </defs>
+  <!-- Monochrome panel/tray mark: Arch mountain with a tunnel cut through its base.
+       Uses the Plasma color-scheme stylesheet so it adapts to light and dark panels. -->
+  <path class="ColorScheme-Text" style="fill:currentColor" fill-rule="evenodd"
+        d="M64 22 L16 106 L112 106 Z M46 106 L46 80 A18 18 0 0 1 82 80 L82 106 Z"/>
+</svg>

@@ -4,12 +4,14 @@
 mod config;
 mod geo;
 mod manager;
+mod metrics;
 mod store;
 mod wg;
 
 use std::path::PathBuf;
 
 use manager::Manager;
+use metrics::Metrics;
 use store::Store;
 
 const DBUS_NAME: &str = "tr.cebi.wirearch";
@@ -27,6 +29,14 @@ fn state_dir() -> PathBuf {
     PathBuf::from("/var/lib/wirearch/tunnels")
 }
 
+/// Path to the metrics database (sibling of the tunnels directory).
+fn metrics_path() -> PathBuf {
+    state_dir()
+        .parent()
+        .map(|p| p.join("metrics.db"))
+        .unwrap_or_else(|| PathBuf::from("metrics.db"))
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `--session` (or WIREARCH_SESSION_BUS) runs on the session bus for
@@ -35,7 +45,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         || std::env::var_os("WIREARCH_SESSION_BUS").is_some();
 
     let store = Store::new(state_dir())?;
-    let manager = Manager::new(store);
+    let metrics = match Metrics::open(&metrics_path()) {
+        Ok(m) => Some(m),
+        Err(e) => {
+            eprintln!("wirearchd: metrics disabled: {e}");
+            None
+        }
+    };
+    let manager = Manager::new(store, metrics);
 
     let builder = if use_session {
         eprintln!("wirearchd: connecting to the SESSION bus (dev mode)");

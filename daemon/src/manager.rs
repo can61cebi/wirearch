@@ -1,6 +1,6 @@
 //! The `tr.cebi.wirearch.Manager` D-Bus interface: tunnel CRUD, connect/
-//! disconnect over kernel netlink, live status, and offline geo lookups.
-//! SetKillSwitch is implemented in a later commit (nftables).
+//! disconnect over kernel netlink, live status, usage metrics, and offline
+//! geo lookups. SetKillSwitch is implemented in a later commit (nftables).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -12,6 +12,7 @@ use zbus::zvariant::{OwnedValue, Value};
 
 use crate::config::WgConfig;
 use crate::geo::GeoDb;
+use crate::metrics::Metrics;
 use crate::store::{Store, Tunnel};
 use crate::wg;
 
@@ -24,19 +25,33 @@ struct ActiveTunnel {
 
 pub struct Manager {
     store: Store,
-    active: Mutex<Option<ActiveTunnel>>,
+    active: Arc<Mutex<Option<ActiveTunnel>>>,
     geo: Option<Arc<GeoDb>>,
     /// Total connected time accumulated from finished sessions since startup.
-    lifetime: Mutex<Duration>,
+    lifetime: Arc<Mutex<Duration>>,
+    metrics: Option<Arc<Metrics>>,
 }
 
 impl Manager {
-    pub fn new(store: Store) -> Self {
+    pub fn new(store: Store, metrics: Option<Metrics>) -> Self {
+        let active = Arc::new(Mutex::new(None));
+        let lifetime = Arc::new(Mutex::new(Duration::ZERO));
+        let metrics = metrics.map(Arc::new);
+
+        if let Some(m) = &metrics {
+            let active_for_sampler = Arc::clone(&active);
+            let metrics_for_sampler = Arc::clone(m);
+            tokio::spawn(async move {
+                run_sampler(active_for_sampler, metrics_for_sampler).await;
+            });
+        }
+
         Self {
             store,
-            active: Mutex::new(None),
+            active,
             geo: GeoDb::open_default().map(Arc::new),
-            lifetime: Mutex::new(Duration::ZERO),
+            lifetime,
+            metrics,
         }
     }
 }
@@ -181,6 +196,40 @@ impl Manager {
         Ok(m)
     }
 
+    /// Usage rollups for charts. `period` is "hour" or "day"; returns up to
+    /// `count` most-recent buckets (oldest first) with ts/rx/tx.
+    async fn get_metrics(
+        &self,
+        period: String,
+        count: u32,
+    ) -> fdo::Result<Vec<HashMap<String, OwnedValue>>> {
+        let Some(metrics) = self.metrics.clone() else {
+            return Ok(Vec::new());
+        };
+        let is_day = period == "day";
+        let rows = tokio::task::spawn_blocking(move || {
+            if is_day {
+                metrics.daily(count)
+            } else {
+                metrics.hourly(count)
+            }
+        })
+        .await
+        .map_err(|e| fdo::Error::Failed(format!("join error: {e}")))?;
+
+        let bucket: i64 = if is_day { 86_400 } else { 3_600 };
+        Ok(rows
+            .into_iter()
+            .map(|(b, rx, tx)| {
+                let mut m = HashMap::new();
+                m.insert("ts".to_string(), owned(b * bucket));
+                m.insert("rx".to_string(), owned(rx));
+                m.insert("tx".to_string(), owned(tx));
+                m
+            })
+            .collect())
+    }
+
     async fn set_kill_switch(&self, _enabled: bool) -> fdo::Result<()> {
         Err(fdo::Error::NotSupported(
             "kill switch is not implemented yet".to_string(),
@@ -227,6 +276,51 @@ impl Manager {
     #[zbus(property)]
     async fn kill_switch_enabled(&self) -> bool {
         false
+    }
+}
+
+/// Reset-aware byte delta: if the counter went backwards (interface recreated),
+/// treat the current value as the increment.
+fn delta(cur: u64, prev: u64) -> u64 {
+    if cur >= prev {
+        cur - prev
+    } else {
+        cur
+    }
+}
+
+/// Background task: every 30s, while a tunnel is active, record the byte
+/// deltas into the metrics rollups.
+async fn run_sampler(active: Arc<Mutex<Option<ActiveTunnel>>>, metrics: Arc<Metrics>) {
+    let mut prev: Option<(String, u64, u64)> = None;
+    loop {
+        tokio::time::sleep(Duration::from_secs(30)).await;
+
+        let ifname = active.lock().unwrap().as_ref().map(|a| a.ifname.clone());
+        let Some(ifname) = ifname else {
+            prev = None;
+            continue;
+        };
+
+        let ifn = ifname.clone();
+        let stats = match tokio::task::spawn_blocking(move || wg::stats(&ifn)).await {
+            Ok(Ok(s)) => s,
+            _ => continue,
+        };
+
+        let (drx, dtx) = match &prev {
+            Some((pif, prx, ptx)) if *pif == ifname => {
+                (delta(stats.rx_bytes, *prx), delta(stats.tx_bytes, *ptx))
+            }
+            // First sample for a freshly created interface (counters start at 0).
+            _ => (stats.rx_bytes, stats.tx_bytes),
+        };
+        prev = Some((ifname, stats.rx_bytes, stats.tx_bytes));
+
+        if drx > 0 || dtx > 0 {
+            let m = Arc::clone(&metrics);
+            let _ = tokio::task::spawn_blocking(move || m.add(drx, dtx)).await;
+        }
     }
 }
 

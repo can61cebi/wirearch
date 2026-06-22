@@ -6,6 +6,8 @@
 //! and the `PreUp`/`PostUp`/`PreDown`/`PostDown` hooks.
 
 use std::str::FromStr;
+
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -29,7 +31,8 @@ pub enum ParseError {
 }
 
 /// The `[Interface]` section of a tunnel.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Interface {
     pub private_key: Option<String>,
     pub addresses: Vec<String>,
@@ -45,7 +48,8 @@ pub struct Interface {
 }
 
 /// A single `[Peer]` section.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Peer {
     pub public_key: String,
     pub preshared_key: Option<String>,
@@ -68,7 +72,8 @@ impl Peer {
 }
 
 /// A fully parsed WireGuard configuration.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct WgConfig {
     pub interface: Interface,
     pub peers: Vec<Peer>,

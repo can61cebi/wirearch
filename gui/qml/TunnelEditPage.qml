@@ -13,6 +13,14 @@ Kirigami.ScrollablePage {
 
     title: page.tunnelId === "" ? i18nc("@title", "New tunnel") : i18nc("@title", "Edit tunnel")
 
+    actions: [
+        Kirigami.Action {
+            text: i18nc("@action:button", "Cancel")
+            icon.name: "dialog-cancel"
+            onTriggered: applicationWindow().pageStack.pop()
+        }
+    ]
+
     function setPrivateKey(key) {
         let text = configArea.text
         if (/PrivateKey\s*=/.test(text)) {

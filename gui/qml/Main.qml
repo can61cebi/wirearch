@@ -15,6 +15,17 @@ Kirigami.ApplicationWindow {
     minimumWidth: Kirigami.Units.gridUnit * 26
     minimumHeight: Kirigami.Units.gridUnit * 18
 
+    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.ToolBar
+    pageStack.globalToolBar.showNavigationButtons: Kirigami.ApplicationHeaderStyle.ShowBackButton
+
+    // Open a secondary page, replacing any already-open one (avoids duplicates).
+    function openPage(component, props) {
+        while (root.pageStack.depth > 1) {
+            root.pageStack.pop()
+        }
+        root.pageStack.push(component, props || ({}))
+    }
+
     function fmtBytes(n) {
         if (!n || n < 0) return "0 B"
         const units = ["B", "KiB", "MiB", "GiB", "TiB"]
@@ -56,7 +67,7 @@ Kirigami.ApplicationWindow {
             Kirigami.Action {
                 text: i18nc("@action:button", "Add")
                 icon.name: "list-add"
-                onTriggered: root.pageStack.push(editComponent, { tunnelId: "", tunnelName: "" })
+                onTriggered: root.openPage(editComponent, { tunnelId: "", tunnelName: "" })
             },
             Kirigami.Action {
                 text: i18nc("@action:button", "Import")
@@ -71,7 +82,7 @@ Kirigami.ApplicationWindow {
             Kirigami.Action {
                 text: i18nc("@action:button", "Statistics")
                 icon.name: "office-chart-bar"
-                onTriggered: root.pageStack.push(statisticsComponent)
+                onTriggered: root.openPage(statisticsComponent)
             }
         ]
 
@@ -233,7 +244,7 @@ Kirigami.ApplicationWindow {
                         display: Controls.AbstractButton.IconOnly
                         Controls.ToolTip.text: i18nc("@info:tooltip", "Edit tunnel")
                         Controls.ToolTip.visible: hovered
-                        onClicked: root.pageStack.push(editComponent,
+                        onClicked: root.openPage(editComponent,
                             { tunnelId: row.modelData.id, tunnelName: row.modelData.name })
                     }
                     Controls.ToolButton {

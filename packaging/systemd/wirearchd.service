@@ -9,11 +9,9 @@ Type=dbus
 BusName=tr.cebi.wirearch
 ExecStart=/usr/lib/wirearch/wirearchd
 
-# --- Least privilege: only what is needed to drive WireGuard + nftables ---
-User=wirearch
-Group=wirearch
-AmbientCapabilities=CAP_NET_ADMIN
-CapabilityBoundingSet=CAP_NET_ADMIN
+# Runs as root: polkit CheckAuthorization() for a client's subject requires a
+# trusted caller (uid 0). Capabilities are bounded and the service is sandboxed.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
 NoNewPrivileges=yes
 
 # --- State / runtime ---

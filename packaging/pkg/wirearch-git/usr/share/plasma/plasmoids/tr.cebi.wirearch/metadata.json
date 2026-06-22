@@ -1,0 +1,18 @@
+{
+    "KPlugin": {
+        "Id": "tr.cebi.wirearch",
+        "Name": "WireArch",
+        "Description": "View and switch your WireGuard VPN from the panel",
+        "Icon": "network-vpn",
+        "Category": "Network",
+        "Authors": [
+            {
+                "Name": "can61cebi"
+            }
+        ],
+        "License": "GPL-3.0-or-later",
+        "Version": "0.1.0"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

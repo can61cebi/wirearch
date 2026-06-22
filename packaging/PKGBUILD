@@ -1,7 +1,7 @@
 # Maintainer: can61cebi <can61cebi@gmail.com>
 pkgname=wirearch-git
 _pkg=wirearch
-pkgver=0.1.0
+pkgver=r24.423a6ca
 pkgrel=1
 pkgdesc="A native KDE Plasma 6 WireGuard VPN client for Arch Linux"
 arch=('x86_64')

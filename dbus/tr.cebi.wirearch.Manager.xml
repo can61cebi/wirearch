@@ -1,0 +1,79 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  WireArch privileged daemon — D-Bus interface contract.
+  Bus: system   Service: tr.cebi.wirearch   Object: /tr/cebi/wirearch
+  Privileged methods are authorized per-call via polkit
+  (actions tr.cebi.wirearch.connect / .manage / .killswitch).
+
+  Dictionary (a{sv}) keys
+    Tunnel: id(s) name(s) endpoint(s) addresses(as) dns(as)
+            allowedIps(as) mtu(u) table(s) fwmark(u) hasPresharedKey(b)
+    Status: state(s) endpoint(s) endpointIp(s) listenPort(u)
+            rxBytes(t) txBytes(t) lastHandshake(x) sinceConnected(x)
+            country(s) countryCode(s) isp(s) asn(u)
+-->
+<node>
+  <interface name="tr.cebi.wirearch.Manager">
+
+    <!-- ===== Tunnel inventory ===== -->
+    <method name="ListTunnels">
+      <arg type="aa{sv}" name="tunnels" direction="out"/>
+    </method>
+    <method name="GetTunnel">
+      <arg type="s" name="id" direction="in"/>
+      <arg type="a{sv}" name="tunnel" direction="out"/>
+    </method>
+    <!-- Parse + store a raw wg-quick style .conf; returns the new tunnel id. -->
+    <method name="ImportConfig">
+      <arg type="s" name="name" direction="in"/>
+      <arg type="s" name="config" direction="in"/>
+      <arg type="s" name="id" direction="out"/>
+    </method>
+    <!-- Create (empty id) or update a tunnel from a dict; returns its id. -->
+    <method name="SaveTunnel">
+      <arg type="s" name="id" direction="in"/>
+      <arg type="a{sv}" name="tunnel" direction="in"/>
+      <arg type="s" name="resultId" direction="out"/>
+    </method>
+    <method name="RemoveTunnel">
+      <arg type="s" name="id" direction="in"/>
+    </method>
+
+    <!-- ===== Connection control (polkit: tr.cebi.wirearch.connect) ===== -->
+    <method name="Connect">
+      <arg type="s" name="id" direction="in"/>
+    </method>
+    <method name="Disconnect">
+      <arg type="s" name="id" direction="in"/>
+    </method>
+    <method name="GetStatus">
+      <arg type="s" name="id" direction="in"/>
+      <arg type="a{sv}" name="status" direction="out"/>
+    </method>
+
+    <!-- ===== Kill switch (polkit: tr.cebi.wirearch.killswitch) ===== -->
+    <method name="SetKillSwitch">
+      <arg type="b" name="enabled" direction="in"/>
+    </method>
+
+    <!-- ===== Properties ===== -->
+    <property name="ActiveTunnel" type="s" access="read"/>
+    <property name="KillSwitchEnabled" type="b" access="read"/>
+    <property name="Version" type="s" access="read"/>
+
+    <!-- ===== Signals ===== -->
+    <!-- state: inactive | activating | active | deactivating | failed -->
+    <signal name="TunnelStateChanged">
+      <arg type="s" name="id"/>
+      <arg type="s" name="state"/>
+    </signal>
+    <signal name="StatsUpdated">
+      <arg type="s" name="id"/>
+      <arg type="t" name="rxBytes"/>
+      <arg type="t" name="txBytes"/>
+      <arg type="x" name="lastHandshake"/>
+    </signal>
+    <signal name="TunnelsChanged"/>
+  </interface>
+</node>

@@ -1,15 +1,14 @@
 # ============================================================
-#  PRIVATE — real WireGuard test configs (NEVER commit/push)
+#  PRIVATE — real WireGuard test configs in the repo ROOT
+#  (hetzner.conf, leventproxmox.conf, turhost.conf — NEVER commit/push)
 # ============================================================
-*.conf
-hetzner.conf
-leventproxmox.conf
-turhost.conf
+/*.conf
 /test-configs/
 /secrets/
 *.key
 *_private*
-# Sanitized samples live as *.conf.example (not matched by *.conf)
+# Only ROOT-level *.conf is ignored, so packaging/**/*.conf and
+# samples/*.conf.example stay tracked.
 
 # ---- GeoIP databases (large; shipped/downloaded separately) ----
 *.mmdb

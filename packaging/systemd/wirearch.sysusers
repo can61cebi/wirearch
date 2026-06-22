@@ -1,0 +1,2 @@
+# Dedicated system user for the WireArch daemon (least privilege).
+u wirearch - "WireArch VPN service" /var/lib/wirearch

@@ -41,7 +41,7 @@ PlasmoidItem {
         onTriggered: root.poll()
     }
 
-    Plasmoid.icon: "network-vpn"
+    Plasmoid.icon: "wirearch"
     toolTipSubText: root.connected
         ? i18n("Connected: %1", root.activeTunnel)
         : i18n("Not connected")
@@ -49,7 +49,7 @@ PlasmoidItem {
     compactRepresentation: Item {
         Kirigami.Icon {
             anchors.fill: parent
-            source: "network-vpn"
+            source: "wirearch"
             opacity: root.connected ? 1.0 : 0.5
         }
         MouseArea {
@@ -68,7 +68,7 @@ PlasmoidItem {
             Layout.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.largeSpacing
             Kirigami.Icon {
-                source: "network-vpn"
+                source: "wirearch"
                 Layout.preferredWidth: Kirigami.Units.iconSizes.medium
                 Layout.preferredHeight: Kirigami.Units.iconSizes.medium
                 opacity: root.connected ? 1.0 : 0.5

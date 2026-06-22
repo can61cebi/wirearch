@@ -1,8 +1,12 @@
+<p align="center">
+  <img src="branding/wirearch.png" width="128" alt="WireArch">
+</p>
+
 # WireArch
 
 A native **KDE Plasma 6** WireGuard® VPN client for **Arch Linux** - built for speed, reliability, and deep desktop integration.
 
-> **Status:** v0.1, functional. The Rust daemon (connect, kill switch, metrics, GeoIP), the Kirigami GUI, the system tray and the Plasma panel widget are implemented and build on Arch Linux + Plasma 6.
+> **Status:** v0.2, functional. The Rust daemon (connect with handshake verification, kill switch, metrics, GeoIP), the Kirigami GUI, the system tray and the Plasma panel widget are implemented and build on Arch Linux + Plasma 6.
 
 WireArch is not a wrapper around `wg-quick`. The privileged core talks to the kernel WireGuard module directly over netlink, runs as a hardened, polkit-gated system service, and the UI is a real Kirigami app with a Plasma panel widget - so tunnels, a kill switch, usage analytics, and per-server geo/ISP information all live in one fast, native package.
 

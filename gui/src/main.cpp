@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QIcon>
 #include <QQuickStyle>
 #include <QWindow>
 
@@ -21,10 +22,11 @@ int main(int argc, char *argv[])
     QApplication::setOrganizationName(QStringLiteral("WireArch"));
     QApplication::setApplicationName(QStringLiteral("WireArch"));
     QApplication::setDesktopFileName(QStringLiteral("org.kde.wirearch"));
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("wirearch")));
 
     KAboutData aboutData(QStringLiteral("wirearch"),
                          i18n("WireArch"),
-                         QStringLiteral("0.1.0"),
+                         QStringLiteral("0.2.0"),
                          i18n("A native KDE WireGuard VPN client"),
                          KAboutLicense::GPL_V3,
                          i18n("(c) 2026 WireArch"));

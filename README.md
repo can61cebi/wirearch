@@ -10,6 +10,10 @@ A native **KDE Plasma 6** WireGuard® VPN client for **Arch Linux** - built for 
 
 WireArch is not a wrapper around `wg-quick`. The privileged core talks to the kernel WireGuard module directly over netlink, runs as a hardened, polkit-gated system service, and the UI is a real Kirigami app with a Plasma panel widget - so tunnels, a kill switch, usage analytics, and per-server geo/ISP information all live in one fast, native package.
 
+<p align="center">
+  <img src="images/main_screen.png" width="720" alt="WireArch main window">
+</p>
+
 ## Why WireArch?
 
 KDE already exposes WireGuard through plasma-nm/NetworkManager, but with real gaps. WireArch targets exactly those:

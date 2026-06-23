@@ -4,11 +4,11 @@
 
 # WireArch
 
-A native **KDE Plasma 6** WireGuard® VPN client for **Arch Linux** - built for speed, reliability, and deep desktop integration.
+A native **KDE Plasma 6** WireGuard® VPN client for **Arch Linux**, built for speed, reliability, and deep desktop integration.
 
 > **Status:** v0.3, functional. The Rust daemon (connect with handshake verification, live link monitoring with fail-closed leak protection, kill switch, metrics, GeoIP), the Kirigami GUI, the system tray and the Plasma panel widget are implemented and build on Arch Linux + Plasma 6.
 
-WireArch is not a wrapper around `wg-quick`. The privileged core talks to the kernel WireGuard module directly over netlink, runs as a hardened, polkit-gated system service, and the UI is a real Kirigami app with a Plasma panel widget - so tunnels, a kill switch, usage analytics, and per-server geo/ISP information all live in one fast, native package.
+WireArch is not a wrapper around `wg-quick`. The privileged core talks to the kernel WireGuard module directly over netlink, runs as a hardened, polkit-gated system service, and the UI is a real Kirigami app with a Plasma panel widget, so tunnels, a kill switch, usage analytics, and per-server geo/ISP information all live in one fast, native package.
 
 <p align="center">
   <img src="images/main_screen.png" width="720" alt="WireArch main window">
@@ -18,14 +18,14 @@ WireArch is not a wrapper around `wg-quick`. The privileged core talks to the ke
 
 KDE already exposes WireGuard through plasma-nm/NetworkManager, but with real gaps. WireArch targets exactly those:
 
-- **In-app `.conf` import and a built-in editor** - create or edit tunnels and generate keypairs without `nmcli`.
-- **Built-in kill switch** - fail-closed nftables rules; no traffic leaks if the tunnel drops.
-- **Connection verification** - after bringing a tunnel up, WireArch waits for a real WireGuard handshake; if the server is down, unreachable or the config is invalid, it tears the tunnel back down and tells you, instead of showing a false "connected".
-- **Drop detection and leak protection** - while connected, WireArch watches the link. A brief outage is ridden out (WireGuard reconnects on its own), but if the server stays unreachable it keeps the tunnel up, blocks traffic fail-closed so your real IP cannot leak, and notifies you. It clears automatically when the server returns.
+- **In-app `.conf` import and a built-in editor:** create or edit tunnels and generate keypairs without `nmcli`.
+- **Built-in kill switch:** fail-closed nftables rules, so no traffic leaks if the tunnel drops.
+- **Connection verification:** after bringing a tunnel up, WireArch waits for a real WireGuard handshake. If the server is down, unreachable, or the config is invalid, it tears the tunnel back down and tells you instead of showing a false "connected".
+- **Drop detection and leak protection:** while connected, WireArch watches the link. A brief outage is ridden out (WireGuard reconnects on its own), but if the server stays unreachable it keeps the tunnel up, blocks traffic fail-closed so your real IP cannot leak, and notifies you. It clears automatically when the server returns.
 - **Multi-tunnel quick-switch** from a **Plasma panel widget** and the system tray.
 - **Hourly / daily usage metrics** with charts, backed by a local SQLite database.
-- **Per-server insight** - endpoint **country + flag**, **ISP / ASN (hosting provider)**, live throughput, current session duration and total connected time - all resolved **offline** for privacy.
-- **Config fidelity** - preserves `MTU`, `Table`, `FwMark`, pre/post hooks and other fields NetworkManager silently drops.
+- **Per-server insight:** endpoint **country + flag**, **ISP / ASN (hosting provider)**, live throughput, current session duration, and total connected time, all resolved **offline** for privacy.
+- **Config fidelity:** preserves `MTU`, `Table`, `FwMark`, pre/post hooks, and other fields NetworkManager silently drops.
 
 See [docs/FEATURES.md](docs/FEATURES.md) for the full feature map.
 
@@ -33,7 +33,7 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the full feature map.
 
 ```
 GUI  (C++/Qt6 · QML/Kirigami · KStatusNotifierItem · Plasma plasmoid)
-  │  D-Bus (system bus) - every privileged action authorized by polkit
+  │  D-Bus (system bus): every privileged action authorized by polkit
   ▼
 wirearchd  (Rust · runs with only CAP_NET_ADMIN · systemd-hardened)
   ├─ kernel WireGuard via generic netlink (no wg-quick shell-outs)
@@ -54,7 +54,7 @@ Full details and rationale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 |------|--------|
 | GUI | C++20, Qt 6.8+, KDE Frameworks 6, Kirigami + Kirigami Addons |
 | Tray / widget | KStatusNotifierItem + Plasma 6 plasmoid (QML) |
-| Privileged daemon | Rust - `defguard_wireguard_rs` (kernel netlink), `nftables`, `zbus`/`zbus_polkit`, `rusqlite`, `maxminddb` |
+| Privileged daemon | Rust: `defguard_wireguard_rs` (kernel netlink), `nftables`, `zbus`/`zbus_polkit`, `rusqlite`, `maxminddb` |
 | IPC | D-Bus system bus, polkit per-action authorization |
 | GeoIP | DB-IP Lite (`.mmdb`) via `maxminddb`; flags from flag-icons (SVG) |
 | Build | CMake + extra-cmake-modules (GUI) · Cargo (daemon) |
@@ -102,7 +102,7 @@ testing, or use the installed system service. See [docs/BUILDING.md](docs/BUILDI
 
 ## Privacy
 
-GeoIP and ISP/ASN lookups use a **bundled offline database** - WireArch never sends your server IPs to a third-party geolocation API.
+GeoIP and ISP/ASN lookups use a **bundled offline database**, so WireArch never sends your server IPs to a third-party geolocation API.
 
 ## The logo
 

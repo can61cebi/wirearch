@@ -8,6 +8,7 @@
 #include <qqmlregistration.h>
 
 class QDBusInterface;
+class QTimer;
 
 /// QML-facing client for the tr.cebi.wirearch.Manager D-Bus service.
 /// Exposed to QML as a singleton; talks to the daemon over the system bus
@@ -21,6 +22,7 @@ class WireArchManager : public QObject
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(QString activeTunnel READ activeTunnel NOTIFY activeTunnelChanged)
     Q_PROPERTY(QString busyTunnel READ busyTunnel NOTIFY busyTunnelChanged)
+    Q_PROPERTY(QString linkHealth READ linkHealth NOTIFY linkHealthChanged)
 
 public:
     explicit WireArchManager(QObject *parent = nullptr);
@@ -29,6 +31,7 @@ public:
     bool available() const;
     QString activeTunnel() const;
     QString busyTunnel() const;
+    QString linkHealth() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE QString importFile(const QString &name, const QString &fileUrl);
@@ -58,6 +61,7 @@ Q_SIGNALS:
     void availableChanged();
     void activeTunnelChanged();
     void busyTunnelChanged();
+    void linkHealthChanged();
     void geoUpdated(const QString &endpoint);
     void errorOccurred(const QString &message);
 
@@ -65,11 +69,18 @@ private:
     void setAvailable(bool available);
     void refreshActive();
     void callAsync(const QString &method, const QString &id);
+    void pollHealth();
+    void updateHealth(const QString &health, bool protectedOn);
+    void notify(const QString &summary, const QString &body, int urgency);
 
     QDBusInterface *m_iface = nullptr;
+    QTimer *m_healthTimer = nullptr;
     QVariantList m_tunnels;
     bool m_available = false;
     QString m_activeTunnel;
     QString m_busyTunnel;
+    QString m_linkHealth;
+    bool m_notifiedDead = false;
+    uint m_lastNotificationId = 0;
     QHash<QString, QVariantMap> m_geoCache;
 };

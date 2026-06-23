@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use zbus::fdo;
 use zbus::interface;
@@ -16,12 +16,36 @@ use crate::metrics::Metrics;
 use crate::store::{Store, Tunnel};
 use crate::wg;
 
+/// Health of the active tunnel's link to its peer, derived from how long ago
+/// the last WireGuard handshake completed. The monitor probes the peer so this
+/// stays meaningful even when the user is generating no traffic.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum LinkHealth {
+    Healthy,
+    Degraded,
+    Dead,
+}
+
+impl LinkHealth {
+    fn as_str(self) -> &'static str {
+        match self {
+            LinkHealth::Healthy => "healthy",
+            LinkHealth::Degraded => "degraded",
+            LinkHealth::Dead => "dead",
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct ActiveTunnel {
     id: String,
     ifname: String,
     connected_at: Instant,
     endpoint: String,
+    /// Destinations the monitor probes to keep the handshake fresh.
+    probe_targets: Vec<String>,
+    /// Whether this tunnel routes all traffic (0.0.0.0/0 or ::/0).
+    is_full_tunnel: bool,
 }
 
 pub struct Manager {
@@ -32,6 +56,11 @@ pub struct Manager {
     lifetime: Arc<Mutex<Duration>>,
     metrics: Option<Arc<Metrics>>,
     killswitch: Arc<Mutex<bool>>,
+    /// Current health of the active link, maintained by the monitor task.
+    link_health: Arc<Mutex<LinkHealth>>,
+    /// True when the monitor engaged fail-closed protection by itself (a
+    /// full-tunnel link went dead while the user kill switch was off).
+    auto_protected: Arc<Mutex<bool>>,
     /// True when serving the session bus (dev mode): polkit checks are skipped.
     session_mode: bool,
 }
@@ -40,6 +69,9 @@ impl Manager {
     pub fn new(store: Store, metrics: Option<Metrics>, session_mode: bool) -> Self {
         let active = Arc::new(Mutex::new(None));
         let lifetime = Arc::new(Mutex::new(Duration::ZERO));
+        let killswitch = Arc::new(Mutex::new(false));
+        let link_health = Arc::new(Mutex::new(LinkHealth::Healthy));
+        let auto_protected = Arc::new(Mutex::new(false));
         let metrics = metrics.map(Arc::new);
 
         if let Some(m) = &metrics {
@@ -50,13 +82,27 @@ impl Manager {
             });
         }
 
+        // Liveness monitor: detect a dead/unreachable peer mid-session, engage
+        // fail-closed protection for full-tunnel configs, and surface the state.
+        {
+            let active = Arc::clone(&active);
+            let killswitch = Arc::clone(&killswitch);
+            let link_health = Arc::clone(&link_health);
+            let auto_protected = Arc::clone(&auto_protected);
+            tokio::spawn(async move {
+                run_monitor(active, killswitch, link_health, auto_protected).await;
+            });
+        }
+
         Self {
             store,
             active,
             geo: GeoDb::open_default().map(Arc::new),
             lifetime,
             metrics,
-            killswitch: Arc::new(Mutex::new(false)),
+            killswitch,
+            link_health,
+            auto_protected,
             session_mode,
         }
     }
@@ -228,12 +274,24 @@ impl Manager {
             .map(|s| s.endpoint)
             .unwrap_or_default();
 
+        let probe_targets = wg::probe_targets(&tunnel.config);
+        let is_full_tunnel = tunnel
+            .config
+            .peers
+            .iter()
+            .flat_map(|p| &p.allowed_ips)
+            .any(|a| matches!(a.trim(), "0.0.0.0/0" | "::/0"));
+
         *self.active.lock().unwrap() = Some(ActiveTunnel {
             id,
             ifname,
             connected_at: Instant::now(),
             endpoint,
+            probe_targets,
+            is_full_tunnel,
         });
+        *self.link_health.lock().unwrap() = LinkHealth::Healthy;
+        *self.auto_protected.lock().unwrap() = false;
 
         if *self.killswitch.lock().unwrap() {
             if let Err(e) = self.apply_killswitch().await {
@@ -265,6 +323,8 @@ impl Manager {
         }
         *self.lifetime.lock().unwrap() += active.connected_at.elapsed();
         *self.active.lock().unwrap() = None;
+        *self.auto_protected.lock().unwrap() = false;
+        *self.link_health.lock().unwrap() = LinkHealth::Healthy;
 
         if *self.killswitch.lock().unwrap() {
             // Stay fail-closed with no active tunnel (blocks all but lo/established).
@@ -300,6 +360,11 @@ impl Manager {
             m.insert("txBytes".to_string(), owned(0u64));
             m.insert("lastHandshake".to_string(), owned(0i64));
             m.insert("endpoint".to_string(), owned(String::new()));
+            m.insert("linkHealth".to_string(), owned("inactive".to_string()));
+            m.insert(
+                "protected".to_string(),
+                owned(*self.killswitch.lock().unwrap()),
+            );
             return Ok(m);
         };
 
@@ -314,6 +379,12 @@ impl Manager {
         m.insert("txBytes".to_string(), owned(stats.tx_bytes));
         m.insert("lastHandshake".to_string(), owned(stats.last_handshake));
         m.insert("endpoint".to_string(), owned(stats.endpoint));
+        m.insert(
+            "linkHealth".to_string(),
+            owned(self.link_health.lock().unwrap().as_str().to_string()),
+        );
+        let protected = *self.killswitch.lock().unwrap() || *self.auto_protected.lock().unwrap();
+        m.insert("protected".to_string(), owned(protected));
         Ok(m)
     }
 
@@ -455,6 +526,115 @@ async fn run_sampler(active: Arc<Mutex<Option<ActiveTunnel>>>, metrics: Arc<Metr
         if drx > 0 || dtx > 0 {
             let m = Arc::clone(&metrics);
             let _ = tokio::task::spawn_blocking(move || m.add(drx, dtx)).await;
+        }
+    }
+}
+
+const MONITOR_TICK: Duration = Duration::from_secs(10);
+/// Handshake age (seconds) past which the monitor actively probes the peer.
+const PROBE_AFTER: i64 = 15;
+/// Handshake age past which the link is considered shaky (a UI hint only).
+const DEGRADED_AFTER: i64 = 30;
+/// Handshake age past which the link is considered down. Around WireGuard's
+/// REKEY_ATTEMPT_TIME (90s): by then a live peer would have answered our probes,
+/// so a still-stale handshake means the peer is genuinely unreachable. Until
+/// this point a brief outage is tolerated and nothing leaks, because the tunnel
+/// interface stays up and its routes keep blackholing traffic.
+const DEAD_AFTER: i64 = 90;
+
+/// Background task: watch the active tunnel's handshake age, keep it fresh by
+/// probing, classify the link health, and (for full-tunnel configs whose user
+/// kill switch is off) engage fail-closed protection if the link dies, lifting
+/// it again on recovery. It never tears the tunnel down: WireGuard is
+/// connectionless and re-handshakes by itself when the peer returns, and a
+/// teardown is exactly what would expose the real IP.
+async fn run_monitor(
+    active: Arc<Mutex<Option<ActiveTunnel>>>,
+    killswitch: Arc<Mutex<bool>>,
+    link_health: Arc<Mutex<LinkHealth>>,
+    auto_protected: Arc<Mutex<bool>>,
+) {
+    loop {
+        tokio::time::sleep(MONITOR_TICK).await;
+
+        let Some(a) = active.lock().unwrap().clone() else {
+            *link_health.lock().unwrap() = LinkHealth::Healthy;
+            continue;
+        };
+
+        let ifn = a.ifname.clone();
+        let stats = match tokio::task::spawn_blocking(move || wg::stats(&ifn)).await {
+            Ok(Ok(s)) => s,
+            _ => continue,
+        };
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let age = if stats.last_handshake > 0 {
+            (now - stats.last_handshake).max(0)
+        } else {
+            i64::MAX
+        };
+
+        // Coax a handshake once the link starts to look stale, so the age stays
+        // meaningful even when the user is generating no traffic.
+        if age > PROBE_AFTER {
+            let targets = a.probe_targets.clone();
+            let _ = tokio::task::spawn_blocking(move || wg::send_probe(&targets)).await;
+        }
+
+        let new_health = if age > DEAD_AFTER {
+            LinkHealth::Dead
+        } else if age > DEGRADED_AFTER {
+            LinkHealth::Degraded
+        } else {
+            LinkHealth::Healthy
+        };
+
+        let prev = {
+            let mut h = link_health.lock().unwrap();
+            let prev = *h;
+            *h = new_health;
+            prev
+        };
+        if new_health == prev {
+            continue;
+        }
+
+        match new_health {
+            LinkHealth::Dead => {
+                let user_ks = *killswitch.lock().unwrap();
+                if !user_ks && a.is_full_tunnel {
+                    let ifname = a.ifname.clone();
+                    let endpoint = a.endpoint.clone();
+                    let res = tokio::task::spawn_blocking(move || {
+                        crate::killswitch::enable(Some(&ifname), Some(&endpoint))
+                    })
+                    .await;
+                    if matches!(res, Ok(Ok(()))) {
+                        *auto_protected.lock().unwrap() = true;
+                        eprintln!(
+                            "wirearchd: link to '{}' is down; engaged fail-closed protection",
+                            a.id
+                        );
+                    }
+                } else {
+                    eprintln!("wirearchd: link to '{}' is down", a.id);
+                }
+            }
+            LinkHealth::Healthy => {
+                let was_auto = {
+                    let mut ap = auto_protected.lock().unwrap();
+                    std::mem::replace(&mut *ap, false)
+                };
+                if was_auto && !*killswitch.lock().unwrap() {
+                    let _ = tokio::task::spawn_blocking(crate::killswitch::disable).await;
+                    eprintln!("wirearchd: link to '{}' recovered; lifted protection", a.id);
+                }
+            }
+            LinkHealth::Degraded => {}
         }
     }
 }

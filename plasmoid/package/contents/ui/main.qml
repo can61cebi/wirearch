@@ -11,6 +11,11 @@ PlasmoidItem {
     property string activeTunnel: ""
     readonly property bool connected: activeTunnel.length > 0
 
+    // The panel renders the icon as-is, so match the grayscale variant to the
+    // panel theme: a light mark on dark panels, a dark mark on light panels.
+    readonly property string trayIcon: Kirigami.Theme.textColor.hslLightness > 0.5
+        ? "wirearch-tray-light" : "wirearch-tray-dark"
+
     // The daemon lives on the system bus; we talk to it through busctl.
     readonly property string svc: "tr.cebi.wirearch /tr/cebi/wirearch tr.cebi.wirearch.Manager"
 
@@ -41,7 +46,7 @@ PlasmoidItem {
         onTriggered: root.poll()
     }
 
-    Plasmoid.icon: "wirearch-symbolic"
+    Plasmoid.icon: root.trayIcon
     toolTipSubText: root.connected
         ? i18n("Connected: %1", root.activeTunnel)
         : i18n("Not connected")
@@ -49,7 +54,7 @@ PlasmoidItem {
     compactRepresentation: Item {
         Kirigami.Icon {
             anchors.fill: parent
-            source: "wirearch-symbolic"
+            source: root.trayIcon
             opacity: root.connected ? 1.0 : 0.5
         }
         MouseArea {

@@ -14,9 +14,13 @@ class Tray : public QObject
 public:
     Tray(WireArchManager *manager, QWindow *window, QObject *parent = nullptr);
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void rebuild();
     void showWindow();
+    void applyIcon();
 
     KStatusNotifierItem *m_sni = nullptr;
     WireArchManager *m_manager = nullptr;

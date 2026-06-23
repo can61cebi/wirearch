@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(wirearch VERSION 0.2.0 LANGUAGES CXX)
+project(wirearch VERSION 0.3.0 LANGUAGES CXX)
 
 set(QT_MIN_VERSION 6.8.0)
 set(KF6_MIN_VERSION 6.0.0)
@@ -40,7 +40,7 @@ install(FILES packaging/org.kde.wirearch.desktop
         DESTINATION ${KDE_INSTALL_APPDIR})
 install(FILES branding/wirearch.svg
         DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
-install(FILES branding/wirearch-symbolic.svg
+install(FILES branding/wirearch-tray-dark.svg branding/wirearch-tray-light.svg
         DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
 install(FILES packaging/dbus/tr.cebi.wirearch.conf
         DESTINATION /usr/share/dbus-1/system.d)

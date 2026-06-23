@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     KAboutData aboutData(QStringLiteral("wirearch"),
                          i18n("WireArch"),
-                         QStringLiteral("0.2.0"),
+                         QStringLiteral("0.3.0"),
                          i18n("A native KDE WireGuard VPN client"),
                          KAboutLicense::GPL_V3,
                          i18n("(c) 2026 WireArch"));

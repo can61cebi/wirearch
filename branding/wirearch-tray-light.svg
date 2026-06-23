@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="WireArch">
+  <!-- Light grayscale variant: used on dark panels. Arch mountain + WireGuard tunnel. -->
+  <path d="M64 22 L16 106 L112 106 Z" fill="#eef0f1"/>
+  <path d="M46 106 L46 80 A18 18 0 0 1 82 80 L82 106 Z" fill="#9a9ea1"/>
+  <path d="M55 106 L55 86 A9 9 0 0 1 73 86 L73 106 Z" fill="#777b7e"/>
+</svg>

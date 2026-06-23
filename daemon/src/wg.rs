@@ -157,24 +157,61 @@ pub fn stats(ifname: &str) -> Result<Stats, WgError> {
     Ok(s)
 }
 
-/// Best-effort: send a small datagram into the tunnel to coax WireGuard into
-/// starting a handshake (it only handshakes when there is traffic or keepalive).
-pub fn probe(cfg: &WgConfig) {
-    let mut targets: Vec<String> = cfg
-        .interface
-        .dns
-        .iter()
-        .filter(|d| d.parse::<IpAddr>().is_ok())
-        .map(|d| format!("{d}:53"))
-        .collect();
-    // A public resolver covers full-tunnel configs that route 0.0.0.0/0.
+/// Build the set of probe destinations for a config: the configured DNS
+/// servers, an address from each peer's allowed-ips (so the probe routes into
+/// the tunnel for split-tunnel configs too; the destination need not be real,
+/// any packet to an allowed-ip makes WireGuard attempt a handshake), and a
+/// public resolver to cover full-tunnel (0.0.0.0/0) configs.
+pub fn probe_targets(cfg: &WgConfig) -> Vec<String> {
+    let mut targets: Vec<String> = Vec::new();
+    for d in &cfg.interface.dns {
+        if d.parse::<IpAddr>().is_ok() {
+            targets.push(format!("{d}:53"));
+        }
+    }
+    for peer in &cfg.peers {
+        for allowed in &peer.allowed_ips {
+            if let Some((ip, _)) = allowed.split_once('/') {
+                if let Ok(addr) = ip.parse::<IpAddr>() {
+                    if !addr.is_unspecified() {
+                        targets.push(socket_target(addr));
+                    }
+                }
+            }
+        }
+    }
     targets.push("1.1.1.1:53".to_string());
-    if let Ok(sock) = UdpSocket::bind("0.0.0.0:0") {
+    targets.sort();
+    targets.dedup();
+    targets
+}
+
+fn socket_target(addr: IpAddr) -> String {
+    match addr {
+        IpAddr::V6(a) => format!("[{a}]:53"),
+        IpAddr::V4(a) => format!("{a}:53"),
+    }
+}
+
+/// Best-effort: send small datagrams to `targets` to coax WireGuard into
+/// starting a handshake (it only handshakes when there is traffic or keepalive).
+pub fn send_probe(targets: &[String]) {
+    let v4 = UdpSocket::bind("0.0.0.0:0").ok();
+    let v6 = UdpSocket::bind("[::]:0").ok();
+    for sock in [&v4, &v6].into_iter().flatten() {
         let _ = sock.set_write_timeout(Some(Duration::from_millis(300)));
-        for target in targets {
+    }
+    for target in targets {
+        let sock = if target.starts_with('[') { v6.as_ref() } else { v4.as_ref() };
+        if let Some(sock) = sock {
             let _ = sock.send_to(&[0u8], target.as_str());
         }
     }
+}
+
+/// Convenience: probe straight from a config (used during connect).
+pub fn probe(cfg: &WgConfig) {
+    send_probe(&probe_targets(cfg));
 }
 
 /// Poll the interface until a handshake completes or `timeout` elapses.

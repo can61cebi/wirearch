@@ -3,9 +3,12 @@
 #include "manager.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QCoreApplication>
+#include <QEvent>
 #include <QIcon>
 #include <QMenu>
+#include <QPalette>
 #include <QWindow>
 
 #include <KLocalizedString>
@@ -20,7 +23,10 @@ Tray::Tray(WireArchManager *manager, QWindow *window, QObject *parent)
     m_sni->setTitle(i18n("WireArch"));
     m_sni->setCategory(KStatusNotifierItem::ApplicationStatus);
     m_sni->setStandardActionsEnabled(false);
-    m_sni->setIconByName(QStringLiteral("wirearch-symbolic"));
+    applyIcon();
+    // The tray host does not honor color-scheme recoloring, so swap the icon
+    // ourselves when the desktop switches between light and dark themes.
+    qApp->installEventFilter(this);
 
     connect(m_sni, &KStatusNotifierItem::activateRequested, this,
             [this](bool, const QPoint &) { showWindow(); });
@@ -76,4 +82,22 @@ void Tray::rebuild()
     QAction *quit =
         menu->addAction(QIcon::fromTheme(QStringLiteral("application-exit")), i18n("Quit"));
     connect(quit, &QAction::triggered, qApp, &QCoreApplication::quit);
+}
+
+void Tray::applyIcon()
+{
+    // The system tray renders the icon as-is (no color-scheme recoloring), so
+    // pick a grayscale variant that contrasts with the current theme: a dark
+    // mark on light panels, a light mark on dark panels.
+    const bool lightTheme = QApplication::palette().color(QPalette::Window).lightness() > 127;
+    m_sni->setIconByName(lightTheme ? QStringLiteral("wirearch-tray-dark")
+                                    : QStringLiteral("wirearch-tray-light"));
+}
+
+bool Tray::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::ApplicationPaletteChange) {
+        applyIcon();
+    }
+    return QObject::eventFilter(watched, event);
 }

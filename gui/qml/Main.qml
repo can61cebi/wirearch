@@ -108,10 +108,19 @@ Kirigami.ApplicationWindow {
 
                 readonly property string subtitleText: {
                     if (row.isActive && row.liveStatus && row.liveStatus.state === "active") {
-                        let bits = [i18nc("@info:status", "Connected")]
+                        const health = WireArchManager.linkHealth
+                        let label = i18nc("@info:status", "Connected")
+                        if (health === "degraded")
+                            label = i18nc("@info:status", "Reconnecting")
+                        else if (health === "dead")
+                            label = row.liveStatus.protected
+                                ? i18nc("@info:status", "Connection lost - traffic blocked")
+                                : i18nc("@info:status", "Connection lost")
+                        let bits = [label]
                         if (row.geo && row.geo.country) bits.push(row.geo.country)
-                        bits.push(root.fmtBytes(row.rxRate) + "/s ↓  "
-                                  + root.fmtBytes(row.txRate) + "/s ↑")
+                        if (health !== "dead")
+                            bits.push(root.fmtBytes(row.rxRate) + "/s ↓  "
+                                      + root.fmtBytes(row.txRate) + "/s ↑")
                         bits.push(root.fmtDuration(row.liveStatus.sinceConnected))
                         return bits.join("   ·   ")
                     }
@@ -218,8 +227,13 @@ Kirigami.ApplicationWindow {
                         }
                         Controls.Label {
                             text: row.subtitleText
-                            color: row.isActive ? Kirigami.Theme.positiveTextColor
-                                                : Kirigami.Theme.textColor
+                            color: {
+                                if (!row.isActive) return Kirigami.Theme.textColor
+                                const h = WireArchManager.linkHealth
+                                if (h === "dead") return Kirigami.Theme.negativeTextColor
+                                if (h === "degraded") return Kirigami.Theme.neutralTextColor
+                                return Kirigami.Theme.positiveTextColor
+                            }
                             opacity: row.isActive ? 1.0 : 0.7
                             font: Kirigami.Theme.smallFont
                             elide: Text.ElideRight

@@ -9,8 +9,11 @@
 #include <QDBusPendingCallWatcher>
 #include <QFile>
 #include <QFileInfo>
+#include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
+
+#include <KLocalizedString>
 
 namespace
 {
@@ -28,6 +31,14 @@ WireArchManager::WireArchManager(QObject *parent)
         useSession ? QDBusConnection::sessionBus() : QDBusConnection::systemBus();
     m_iface = new QDBusInterface(Service, Path, Iface, bus, this);
     refresh();
+
+    // Poll the active tunnel's link health so we can warn the user (and reflect
+    // it in the UI) if the server goes away mid-session. Runs even when the
+    // window is hidden, as long as the tray keeps the app alive.
+    m_healthTimer = new QTimer(this);
+    m_healthTimer->setInterval(3000);
+    connect(m_healthTimer, &QTimer::timeout, this, &WireArchManager::pollHealth);
+    m_healthTimer->start();
 }
 
 QVariantList WireArchManager::tunnels() const
@@ -281,4 +292,85 @@ QVariantMap WireArchManager::generateKeypair()
     result[QStringLiteral("privateKey")] = reply.arguments().value(0).toString();
     result[QStringLiteral("publicKey")] = reply.arguments().value(1).toString();
     return result;
+}
+
+QString WireArchManager::linkHealth() const
+{
+    return m_linkHealth;
+}
+
+void WireArchManager::pollHealth()
+{
+    if (!m_iface || m_activeTunnel.isEmpty()) {
+        if (!m_linkHealth.isEmpty()) {
+            m_linkHealth.clear();
+            Q_EMIT linkHealthChanged();
+        }
+        m_notifiedDead = false;
+        return;
+    }
+    auto *watcher = new QDBusPendingCallWatcher(
+        m_iface->asyncCall(QStringLiteral("GetStatus"), m_activeTunnel), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this](QDBusPendingCallWatcher *w) {
+                const QDBusMessage reply = w->reply();
+                if (reply.type() != QDBusMessage::ErrorMessage) {
+                    const QVariantMap s = qdbus_cast<QVariantMap>(reply.arguments().value(0));
+                    updateHealth(s.value(QStringLiteral("linkHealth")).toString(),
+                                 s.value(QStringLiteral("protected")).toBool());
+                }
+                w->deleteLater();
+            });
+}
+
+void WireArchManager::updateHealth(const QString &health, bool protectedOn)
+{
+    if (health == m_linkHealth) {
+        return;
+    }
+    m_linkHealth = health;
+    Q_EMIT linkHealthChanged();
+
+    if (health == QStringLiteral("dead")) {
+        notify(i18n("VPN connection lost"),
+               protectedOn
+                   ? i18n("The server stopped responding. Traffic is blocked to prevent leaks; "
+                          "the tunnel recovers automatically if the server comes back.")
+                   : i18n("The server stopped responding. The tunnel is unreachable; "
+                          "it recovers automatically if the server comes back."),
+               2);
+        m_notifiedDead = true;
+    } else if (health == QStringLiteral("healthy") && m_notifiedDead) {
+        notify(i18n("VPN connection restored"), i18n("The tunnel is responding again."), 1);
+        m_notifiedDead = false;
+    }
+}
+
+void WireArchManager::notify(const QString &summary, const QString &body, int urgency)
+{
+    QDBusInterface notifications(QStringLiteral("org.freedesktop.Notifications"),
+                                QStringLiteral("/org/freedesktop/Notifications"),
+                                QStringLiteral("org.freedesktop.Notifications"),
+                                QDBusConnection::sessionBus());
+    if (!notifications.isValid()) {
+        return;
+    }
+    QVariantMap hints;
+    hints.insert(QStringLiteral("urgency"),
+                 QVariant::fromValue<uchar>(static_cast<uchar>(urgency)));
+    const QVariantList args{
+        QStringLiteral("WireArch"),
+        m_lastNotificationId,
+        QStringLiteral("wirearch"),
+        summary,
+        body,
+        QStringList{},
+        hints,
+        -1,
+    };
+    const QDBusMessage reply =
+        notifications.callWithArgumentList(QDBus::Block, QStringLiteral("Notify"), args);
+    if (reply.type() != QDBusMessage::ErrorMessage) {
+        m_lastNotificationId = reply.arguments().value(0).toUInt();
+    }
 }
